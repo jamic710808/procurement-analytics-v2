@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>採購智能分析平台 V4.0 | 整合版</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface2: #334155;
+  --glass: rgba(30, 41, 59, 0.8);
+  --border: rgba(255, 255, 255, 0.08);
+  --primary: #6366f1;
+  --accent: #0ea5e9;
+  --gold: #f59e0b;
+  --red: #ef4444;
+  --green: #10b981;
+  --purple: #a855f7;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --radius: 12px;
+  --rad-lg: 16px;
+}
+
+[data-theme="light"] {
+  --bg: #f9f6f0;           /* 淡米色背景，溫和不刺眼 */
+  --surface: #ffffff;      /* 卡片底色保持純淨白，與背境產生層次 */
+  --surface2: #f0ece1;     /* 較深的米色供次要元素或懸浮狀態使用 */
+  --glass: rgba(255, 255, 255, 0.85);
+  --border: rgba(140, 130, 120, 0.15); /* 溫潤的邊框顏色 */
+  --primary: #5a67d8;      /* 稍微柔和的品牌色 */
+  --text: #33312e;         /* 深灰棕色文字，降低強烈對比引起的視覺疲勞 */
+  --muted: #827b74;        /* 柔和的次要文字色 */
+  --green: #059669;
+  --red: #dc2626;
+  --gold: #d97706;
+  --accent: #0284c7;
+  --purple: #9333ea;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', 'Microsoft JhengHei', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.sidebar-header {
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-header i { color: var(--accent); font-size: 22px; }
+.sidebar-header h1 { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.sidebar-header span { font-size: 10px; color: var(--muted); font-weight: 400; }
+
+.nav-section { padding: 12px 0; }
+.nav-section-title {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 8px 16px;
+  font-weight: 600;
+}
+.nav-item {
+  padding: 11px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+.nav-item:hover { background: rgba(255, 255, 255, 0.03); color: var(--text); }
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), transparent);
+  color: var(--primary);
+  border-left-color: var(--primary);
+  font-weight: 600;
+}
+.nav-item i { width: 18px; text-align: center; font-size: 14px; }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Topbar */
+.topbar {
+  height: 64px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.topbar-sub { font-size: 12px; color: var(--muted); }
+
+.filters { display: flex; gap: 10px; align-items: center; }
+.filters select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.filters select:focus { border-color: var(--primary); }
+
+.topbar-actions { display: flex; gap: 10px; align-items: center; }
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn-success { background: var(--green); color: #fff; }
+.btn:hover { transform: translateY(-1px); opacity: 0.9; }
+
+/* Content */
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.page { display: none; animation: fadeIn 0.3s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+.page-title i { color: var(--accent); }
+.page-sub { font-size: 13px; color: var(--muted); }
+
+/* Grid */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px; }
+.grid-12 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-bottom: 20px; }
+.grid-21 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+.grid-1 { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px; }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.card-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.card-title i { color: var(--accent); }
+
+/* KPI */
+.kpi-card {
+  background: linear-gradient(145deg, var(--surface), var(--bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3); }
+.kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.kpi-value { font-size: 32px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.kpi-value.primary { color: var(--primary); }
+.kpi-value.success { color: var(--green); }
+.kpi-value.warning { color: var(--gold); }
+.kpi-value.danger { color: var(--red); }
+.kpi-value.accent { color: var(--accent); }
+.kpi-delta { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; }
+.kpi-delta.up { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+.kpi-delta.down { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+.kpi-delta.neutral { background: rgba(148, 163, 184, 0.15); color: var(--muted); }
+
+/* Chart */
+.chart-container { position: relative; height: 280px; width: 100%; }
+.chart-container.lg { height: 350px; }
+.chart-container.sm { height: 200px; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 2px solid var(--primary);
+  white-space: nowrap;
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+tr:hover td { background: rgba(99, 102, 241, 0.05); }
+tr:last-child td { border-bottom: none; }
+
+/* Badge */
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; display: inline-block; }
+.b-green { background: rgba(16, 185, 129, 0.2); color: var(--green); }
+.b-red { background: rgba(239, 68, 68, 0.2); color: var(--red); }
+.b-gold { background: rgba(245, 158, 11, 0.2); color: var(--gold); }
+.b-blue { background: rgba(14, 165, 233, 0.2); color: var(--accent); }
+.b-purple { background: rgba(168, 85, 247, 0.2); color: var(--purple); }
+
+/* Alert */
+.alert-box {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 4px solid var(--red);
+  padding: 14px 16px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.alert-box.warning { background: rgba(245, 158, 11, 0.1); border-left-color: var(--gold); }
+.alert-box.info { background: rgba(14, 165, 233, 0.1); border-left-color: var(--accent); }
+.alert-title { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.alert-desc { color: var(--muted); font-size: 11px; }
+
+/* Progress */
+.progress-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+.progress-fill.green { background: linear-gradient(90deg, var(--green), #34d399); }
+.progress-fill.blue { background: linear-gradient(90deg, var(--primary), #818cf8); }
+.progress-fill.gold { background: linear-gradient(90deg, var(--gold), #fbbf24); }
+.progress-fill.red { background: linear-gradient(90deg, var(--red), #f87171); }
+
+/* Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--muted);
+  padding: 40px;
+  text-align: center;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 20px 0;
+}
+.upload-zone:hover { border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+.upload-zone.dragover { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+.upload-zone i { font-size: 48px; color: var(--muted); margin-bottom: 16px; }
+.upload-zone-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.upload-zone-sub { font-size: 12px; color: var(--muted); }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: none;
+  place-items: center;
+}
+.modal-overlay.show { display: grid; }
+.modal {
+  background: var(--surface);
+  width: 560px;
+  max-width: 95vw;
+  border-radius: var(--rad-lg);
+  border: 1px solid var(--border);
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-title { font-size: 18px; font-weight: 700; color: var(--accent); }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px; }
+.modal-close:hover { color: var(--text); }
+.modal-body { }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.form-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+.form-input:focus { border-color: var(--primary); }
+
+/* Data Status */
+.data-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 20px;
+}
+.data-status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.data-status-dot.live { background: var(--green); animation: pulse 2s infinite; }
+.data-status-dot.demo { background: var(--gold); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Theme Toggle */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { width: 60px; }
+  .sidebar-header h1, .nav-item span, .nav-section-title, .sidebar-footer { display: none; }
+  .grid-4, .grid-3, .grid-2, .grid-12, .grid-21 { grid-template-columns: 1fr; }
+  .topbar { padding: 0 12px; }
+}
+
+/* Data Center Specific */
+.data-center-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.data-action-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.data-action-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3); border-color: var(--primary); }
+.data-action-card i { font-size: 48px; margin-bottom: 16px; }
+.data-action-card.upload i { color: var(--green); }
+.data-action-card.download i { color: var(--accent); }
+.data-action-card.edit i { color: var(--gold); }
+.data-action-card h3 { font-size: 16px; margin-bottom: 8px; }
+.data-action-card p { font-size: 12px; color: var(--muted); }
+
+/* Sheet Info */
+.sheet-info {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.sheet-info h4 { font-size: 13px; margin-bottom: 10px; color: var(--primary); }
+.sheet-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.sheet-tag {
+  background: var(--surface);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sheet-tag.active { background: var(--primary); color: #fff; }
+
+/* Simulated Input */
+.sim-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  width: 80px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <i class="fa-solid fa-chart-line"></i>
+    <div>
+      <h1>採購智能分析平台</h1>
+      <span>V4.0 整合版</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">核心分析 (Core)</div>
+    <div class="nav-item active" data-page="summary" onclick="nav('summary')">
+      <i class="fa-solid fa-gauge-high"></i><span>決策總覽</span>
+    </div>
+    <div class="nav-item" data-page="spend" onclick="nav('spend')">
+      <i class="fa-solid fa-coins"></i><span>支出分析</span>
+    </div>
+    <div class="nav-item" data-page="supplier" onclick="nav('supplier')">
+      <i class="fa-solid fa-handshake"></i><span>供應商矩陣</span>
+    </div>
+    <div class="nav-item" data-page="cost" onclick="nav('cost')">
+      <i class="fa-solid fa-piggy-bank"></i><span>成本節約</span>
+    </div>
+    <div class="nav-item" data-page="quality" onclick="nav('quality')">
+      <i class="fa-solid fa-clipboard-check"></i><span>品質與交付</span>
+    </div>
+    <div class="nav-item" data-page="deviation" onclick="nav('deviation')">
+      <i class="fa-solid fa-triangle-exclamation"></i><span>計畫偏差</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">進階模組 (Advanced)</div>
+    <div class="nav-item" data-page="risk" onclick="nav('risk')">
+      <i class="fa-solid fa-shield-halved"></i><span>風險管控</span>
+    </div>
+    <div class="nav-item" data-page="esg" onclick="nav('esg')">
+      <i class="fa-solid fa-leaf"></i><span>ESG 永續</span>
+    </div>
+    <div class="nav-item" data-page="contract" onclick="nav('contract')">
+      <i class="fa-solid fa-file-contract"></i><span>合約管理</span>
+    </div>
+    <div class="nav-item" data-page="maturity" onclick="nav('maturity')">
+      <i class="fa-solid fa-graduation-cap"></i><span>採購成熟度</span>
+    </div>
+    <div class="nav-item" data-page="simulation" onclick="nav('simulation')">
+      <i class="fa-solid fa-flask"></i><span>情境模擬</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-title">系統 (System)</div>
+    <div class="nav-item" data-page="datacenter" onclick="nav('datacenter')">
+      <i class="fa-solid fa-database"></i><span>資料管理中心</span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    V4.0 | 2025-Q4<br>資料連線正常
+  </div>
+</nav>
+
+<!-- Main -->
+<main class="main">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div>
+        <div class="topbar-title" id="page-title">決策總覽</div>
+        <div class="topbar-sub" id="page-sub">核心財務與風險 KPI 指標板</div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <select id="flt-year" onchange="applyFilters()">
+        <option value="all">所有年份</option>
+        <option value="2024">2024</option>
+        <option value="2025" selected>2025</option>
+      </select>
+      <select id="flt-quarter" onchange="applyFilters()">
+        <option value="all">所有季度</option>
+        <option value="Q1">Q1</option>
+        <option value="Q2">Q2</option>
+        <option value="Q3">Q3</option>
+        <option value="Q4">Q4</option>
+      </select>
+      <select id="flt-category" onchange="applyFilters()">
+        <option value="all">所有品類</option>
+        <option value="電子零組件">電子零組件</option>
+        <option value="機構件">機構件</option>
+        <option value="包材">包材</option>
+        <option value="間接物料">間接物料</option>
+      </select>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="data-status">
+        <span class="data-status-dot demo" id="status-dot"></span>
+        <span id="status-text">範例資料</span>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+      <button class="btn btn-secondary" onclick="showDataCenter()">
+        <i class="fa-solid fa-database"></i> 資料管理
+      </button>
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        <i class="fa-solid fa-cloud-arrow-up"></i> 匯入 Excel
+      </button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(this)">
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content" id="main-content">
+
+    <!-- ========== PAGE 1: SUMMARY ========== -->
+    <section id="page-summary" class="page active">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-gauge-high"></i> 決策總覽</div>
+        <div class="page-sub">核心財務與風險 KPI 指標板</div>
+      </div>
+
+      <div class="grid-4">
+        <div class="kpi-card">
+          <div class="kpi-label">總採購支出 (SUM)</div>
+          <div class="kpi-value primary" id="kpi-spend">$0</div>
+          <div class="kpi-delta up" id="kpi-spend-trend"><i class="fa-solid fa-arrow-up"></i> +0% vs 上月</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">成本節約金額</div>
+          <div class="kpi-value success" id="kpi-saving">$0</div>
+          <div class="kpi-delta up" id="kpi-saving-rate"><i class="fa-solid fa-check"></i> 達標率 0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">活躍供應商</div>
+          <div class="kpi-value accent" id="kpi-suppliers">0</div>
+          <div class="kpi-delta neutral" id="kpi-suppliers-risk"><i class="fa-solid fa-exclamation"></i> 集中度警示</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">準時交貨率 (OTD)</div>
+          <div class="kpi-value" id="kpi-otd">0%</div>
+          <div class="kpi-delta up" id="kpi-otd-trend"><i class="fa-solid fa-arrow-up"></i> +0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">品質合格率</div>
+          <div class="kpi-value success" id="kpi-quality">0%</div>
+          <div class="kpi-delta up" id="kpi-quality-trend"><i class="fa-solid fa-arrow-up"></i> +0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">風險供應商數</div>
+          <div class="kpi-value danger" id="kpi-risk-count">0</div>
+          <div class="kpi-delta down" id="kpi-risk-action"><i class="fa-solid fa-triangle-exclamation"></i> 需介入</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PPV 價格偏差</div>
+          <div class="kpi-value warning" id="kpi-ppv">$0</div>
+          <div class="kpi-delta neutral" id="kpi-ppv-status"><i class="fa-solid fa-minus"></i> 在控制範圍</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">採購 ROI</div>
+          <div class="kpi-value" id="kpi-roi">0%</div>
+          <div class="kpi-delta up" id="kpi-roi-status"><i class="fa-solid fa-chart-line"></i> 超出目標</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-triangle-exclamation"></i> 即時警示通知</div>
+          <div id="alert-container" style="max-height:260px;overflow-y:auto;">
+            <!-- JS injected -->
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-line"></i> 月度支出趨勢</div>
+          <div class="chart-container"><canvas id="chart-trend"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-pie"></i> 品類支出佔比</div>
+          <div class="chart-container"><canvas id="chart-category"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-users-viewfinder"></i> 供應商風險分佈</div>
+          <div class="chart-container"><canvas id="chart-risk-dist"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-bullseye"></i> 目標達成雷達圖</div>
+          <div class="chart-container"><canvas id="chart-radar"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 2: SPEND ========== -->
+    <section id="page-spend" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-coins"></i> 支出多維分析</div>
+        <div class="page-sub">Spend Cube 三維度建模分析</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-bar"></i> 品類支出分析</div>
+          <div class="chart-container"><canvas id="chart-spend-category"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-building"></i> 部門支出排行</div>
+          <div class="chart-container"><canvas id="chart-spend-dept"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-1">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-exclamation-triangle"></i> Maverick Spend 分佈 (非合約支出)</div>
+          <div class="chart-container"><canvas id="chart-maverick"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-ranking-star"></i> Top 10 供應商支出明細</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>排名</th><th>供應商名稱</th><th>品類</th><th>支出金額</th><th>訂單數</th><th>佔比</th><th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="table-top-suppliers"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 3: SUPPLIER ========== -->
+    <section id="page-supplier" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-handshake"></i> 供應商績效與風險矩陣</div>
+        <div class="page-sub">Kraljic 四象限分析 | 綜合評分排名</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-scatter"></i> 四象限分佈 (品質 vs 交期)</div>
+          <div class="chart-container lg"><canvas id="chart-supplier-quad"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-trophy"></i> 供應商評分排行</div>
+          <div class="chart-container lg"><canvas id="chart-supplier-rank"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-list"></i> 供應商詳細資料</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>供應商</th><th>品類</th><th>支出</th><th>準時率</th><th>合格率</th><th>ESG</th><th>風險</th><th>評級</th><th>動作</th>
+              </tr>
+            </thead>
+            <tbody id="table-suppliers"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 4: COST ========== -->
+    <section id="page-cost" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-piggy-bank"></i> 成本節約與價格差異</div>
+        <div class="page-sub">PPV | Cost Avoidance | 採購 ROI</div>
+      </div>
+
+      <div class="grid-3">
+        <div class="kpi-card">
+          <div class="kpi-label">累計成本規避</div>
+          <div class="kpi-value success" id="kpi-avoidance">$0</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-check"></i> 超額達成</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PPV 價格偏差</div>
+          <div class="kpi-value danger" id="kpi-ppv-detail">$0</div>
+          <div class="kpi-delta down" id="kpi-ppv-detail-trend"><i class="fa-solid fa-arrow-down"></i> 待改善</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">採購投資回報率</div>
+          <div class="kpi-value accent" id="kpi-roi-detail">0%</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-chart-line"></i> 表現優異</div>
+        </div>
+      </div>
+
+      <div class="grid-1">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-line"></i> 原物料價格指數追蹤 (本年/去年/市場)</div>
+          <div class="chart-container lg"><canvas id="chart-price-index"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-coins"></i> 節約來源佔比</div>
+          <div class="chart-container"><canvas id="chart-saving-source"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-clock"></i> 月度節約趨勢</div>
+          <div class="chart-container"><canvas id="chart-saving-trend"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 價格差異追蹤表</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>品項</th><th>基準價</th><th>本年價</th><th>去年價</th><th>市場均價</th><th>偏差%</th><th>狀態</th></tr>
+            </thead>
+            <tbody id="table-price-variance"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 5: QUALITY ========== -->
+    <section id="page-quality" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-clipboard-check"></i> 品質與交付追蹤</div>
+        <div class="page-sub">SPC 管制圖 | 缺陷分析 | 交付及時率</div>
+      </div>
+
+      <div class="grid-4">
+        <div class="kpi-card">
+          <div class="kpi-label">進貨檢驗合格率</div>
+          <div class="kpi-value success" id="kpi-iqa">0%</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-arrow-up"></i> +0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">交付及時率</div>
+          <div class="kpi-value" id="kpi-on-time">0%</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-arrow-up"></i> +0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">月平均缺陷率</div>
+          <div class="kpi-value danger" id="kpi-dppm">0 PPM</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-arrow-down"></i> -0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Top 缺陷類型</div>
+          <div class="kpi-value warning" id="kpi-top-defect">N/A</div>
+          <div class="kpi-delta neutral"><i class="fa-solid fa-info"></i> 需關注</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-area"></i> 品質趨勢 (SPC)</div>
+          <div class="chart-container lg"><canvas id="chart-quality-spc"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-pie"></i> 缺陷類型分佈</div>
+          <div class="chart-container lg"><canvas id="chart-defect-pie"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 品質異常記錄</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>日期</th><th>供應商</th><th>品項</th><th>缺陷類型</th><th>數量</th><th>處理方式</th><th>狀態</th></tr>
+            </thead>
+            <tbody id="table-quality"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 6: DEVIATION ========== -->
+    <section id="page-deviation" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-triangle-exclamation"></i> 計畫偏差管理</div>
+        <div class="page-sub">超採 | 漏採 | 執行缺口追蹤</div>
+      </div>
+
+      <div class="grid-3">
+        <div class="kpi-card">
+          <div class="kpi-label">整體完成率</div>
+          <div class="kpi-value" id="kpi-completion">0%</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-check"></i> 達標</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">超採件數</div>
+          <div class="kpi-value warning" id="kpi-over">0</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-arrow-up"></i> 需管控</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">漏採件數</div>
+          <div class="kpi-value danger" id="kpi-under">0</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-arrow-down"></i> 緊急補貨</div>
+        </div>
+      </div>
+
+      <div class="grid-1">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-bar"></i> 品類計劃 vs 實際 (對比去年同期)</div>
+          <div class="chart-container lg"><canvas id="chart-plan-compare"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 偏差明細表</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>品類</th><th>計劃量</th><th>實際量</th><th>偏差量</th><th>偏差率</th><th>去年實際</th><th>同比</th><th>狀態</th></tr>
+            </thead>
+            <tbody id="table-deviation"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 7: RISK ========== -->
+    <section id="page-risk" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-shield-halved"></i> 風險管控</div>
+        <div class="page-sub">地緣風險 | 供應商風險事件 | 緩解措施</div>
+      </div>
+
+      <div class="grid-3">
+        <div class="kpi-card">
+          <div class="kpi-label">風險供應商</div>
+          <div class="kpi-value danger" id="kpi-risk-sup">0</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-triangle-exclamation"></i> 需關注</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">風險採購金額</div>
+          <div class="kpi-value warning" id="kpi-risk-amount">$0</div>
+          <div class="kpi-delta neutral"><i class="fa-solid fa-info"></i> 佔總支出 0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">緩解措施執行</div>
+          <div class="kpi-value success" id="kpi-mitigation">0%</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-check"></i> 已執行</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-globe"></i> 地緣風險分佈</div>
+          <div class="chart-container"><canvas id="chart-geo-risk"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-triangle-exclamation"></i> 高風險事件</div>
+          <div id="risk-events" style="max-height:280px;overflow-y:auto;">
+            <!-- JS injected -->
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 風險評估表</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>供應商</th><th>風險類型</th><th>風險指數</th><th>衝擊程度</th><th>可能性</th><th>緩解措施</th><th>狀態</th></tr>
+            </thead>
+            <tbody id="table-risk"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 8: ESG ========== -->
+    <section id="page-esg" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-leaf"></i> ESG 永續評核</div>
+        <div class="page-sub">環境 | 社會 | 治理 三維度評分</div>
+      </div>
+
+      <div class="grid-3">
+        <div class="kpi-card">
+          <div class="kpi-label">環境評分 (E)</div>
+          <div class="kpi-value success" id="kpi-esg-e">0</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-leaf"></i> 優於同業</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">社會評分 (S)</div>
+          <div class="kpi-value accent" id="kpi-esg-s">0</div>
+          <div class="kpi-delta neutral"><i class="fa-solid fa-users"></i> 符合標準</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">治理評分 (G)</div>
+          <div class="kpi-value primary" id="kpi-esg-g">0</div>
+          <div class="kpi-delta up"><i class="fa-solid fa-scale-balanced"></i> 良好</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-bar"></i> ESG 供應商評分</div>
+          <div class="chart-container lg"><canvas id="chart-esg-supplier"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-smog"></i> 碳排放追蹤 (Scope 3)</div>
+          <div class="chart-container lg"><canvas id="chart-carbon"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> ESG 評分明細</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>供應商</th><th>E 環境</th><th>S 社會</th><th>G 治理</th><th>總分</th><th>評級</th><th>改善建議</th></tr>
+            </thead>
+            <tbody id="table-esg"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 9: CONTRACT ========== -->
+    <section id="page-contract" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-file-contract"></i> 合約生命週期管理</div>
+        <div class="page-sub">合約到期預警 | 法遵管理</div>
+      </div>
+
+      <div class="grid-4">
+        <div class="kpi-card">
+          <div class="kpi-label">有效合約</div>
+          <div class="kpi-value primary" id="kpi-contracts">0</div>
+          <div class="kpi-delta neutral"><i class="fa-solid fa-check"></i> 正常</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">30天內到期</div>
+          <div class="kpi-value warning" id="kpi-expiring">0</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-clock"></i> 需續約</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">已到期</div>
+          <div class="kpi-value danger" id="kpi-expired">0</div>
+          <div class="kpi-delta down"><i class="fa-solid fa-alert"></i> 緊急</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">平均餘命</div>
+          <div class="kpi-value accent" id="kpi-avg-life">0 月</div>
+          <div class="kpi-delta neutral"><i class="fa-solid fa-calendar"></i> 持續追蹤</div>
+        </div>
+      </div>
+
+      <div class="grid-1">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-line"></i> 合約到期趨勢</div>
+          <div class="chart-container"><canvas id="chart-contract-timeline"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 合約明細</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>合約編號</th><th>供應商</th><th>品類</th><th>簽約日</th><th>到期日</th><th>金額</th><th>狀態</th><th>動作</th></tr>
+            </thead>
+            <tbody id="table-contracts"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 10: MATURITY ========== -->
+    <section id="page-maturity" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-graduation-cap"></i> 採購成熟度評估</div>
+        <div class="page-sub">五階段成熟度模型 | 診斷與改善路徑</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-radar"></i> 整體成熟度評分</div>
+          <div class="chart-container lg"><canvas id="chart-maturity-radar"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fa-solid fa-chart-line"></i> 各維度進步趨勢</div>
+          <div class="chart-container lg"><canvas id="chart-maturity-trend"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-stairs"></i> 成熟度五階段說明</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px;">
+          <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;">
+            <div style="font-size:20px;color:var(--red);font-weight:700;">L1</div>
+            <div style="font-size:12px;font-weight:600;margin:8px 0;">反應階段</div>
+            <div style="font-size:10px;color:var(--muted);">手動 Excel<br>數據分散</div>
+          </div>
+          <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;">
+            <div style="font-size:20px;color:var(--gold);font-weight:700;">L2</div>
+            <div style="font-size:12px;font-weight:600;margin:8px 0;">描述階段</div>
+            <div style="font-size:10px;color:var(--muted);">建立看板<br>被動分析</div>
+          </div>
+          <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;">
+            <div style="font-size:20px;color:var(--accent);font-weight:700;">L3</div>
+            <div style="font-size:12px;font-weight:600;margin:8px 0;">診斷階段</div>
+            <div style="font-size:10px;color:var(--muted);">原因分析<br>偏差追蹤</div>
+          </div>
+          <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;">
+            <div style="font-size:20px;color:var(--primary);font-weight:700;">L4</div>
+            <div style="font-size:12px;font-weight:600;margin:8px 0;">預測階段</div>
+            <div style="font-size:10px;color:var(--muted);">趨勢預測<br>早期預警</div>
+          </div>
+          <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;">
+            <div style="font-size:20px;color:var(--green);font-weight:700;">L5</div>
+            <div style="font-size:12px;font-weight:600;margin:8px 0;">規範階段</div>
+            <div style="font-size:10px;color:var(--muted);">自動優化<br>持續改進</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-table"></i> 各維度評分明細</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>維度</th><th>策略與規劃</th><th>供應商管理</th><th>成本控制</th><th>流程效率</th><th>風險合規</th><th>總分</th><th>等級</th></tr>
+            </thead>
+            <tbody id="table-maturity"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 11: SIMULATION ========== -->
+    <section id="page-simulation" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-flask"></i> 情境決策模擬器</div>
+        <div class="page-sub">What-If 情境分析 | 策略模擬</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-sliders"></i> 模擬參數設定</div>
+          <div class="form-group">
+            <label class="form-label">價格變動幅度 (%)</label>
+            <input type="range" id="sim-price" min="-30" max="30" value="0" style="width:100%" oninput="updateSimulation()">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);">
+              <span>-30%</span><span id="sim-price-val">0%</span><span>+30%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">供應商數變動 (%)</label>
+            <input type="range" id="sim-suppliers" min="-50" max="50" value="0" style="width:100%" oninput="updateSimulation()">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);">
+              <span>-50%</span><span id="sim-suppliers-val">0%</span><span>+50%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">需求變動幅度 (%)</label>
+            <input type="range" id="sim-demand" min="-30" max="30" value="0" style="width:100%" oninput="updateSimulation()">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);">
+              <span>-30%</span><span id="sim-demand-val">0%</span><span>+30%</span>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="resetSimulation()" style="width:100%;margin-top:12px;">
+            <i class="fa-solid fa-rotate-left"></i> 重置模擬
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-chart-line"></i> 模擬結果預測</div>
+          <div class="grid-3" style="margin-bottom:16px;">
+            <div style="text-align:center;padding:16px;background:var(--bg);border-radius:8px;">
+              <div style="font-size:10px;color:var(--muted);">預測支出</div>
+              <div style="font-size:24px;font-weight:700;color:var(--primary);" id="sim-spend">$0</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg);border-radius:8px;">
+              <div style="font-size:10px;color:var(--muted);">預測節省</div>
+              <div style="font-size:24px;font-weight:700;color:var(--green);" id="sim-save">$0</div>
+            </div>
+            <div style="text-align:center;padding:16px;background:var(--bg);border-radius:8px;">
+              <div style="font-size:10px;color:var(--muted);">風險指數</div>
+              <div style="font-size:24px;font-weight:700;color:var(--gold);" id="sim-risk">0</div>
+            </div>
+          </div>
+          <div class="chart-container"><canvas id="chart-simulation"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fa-solid fa-lightbulb"></i> 策略建議</div>
+        <div id="simulation-insights" style="font-size:13px;color:var(--muted);line-height:1.8;">
+          <!-- JS injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PAGE 12: DATA CENTER ========== -->
+    <section id="page-datacenter" class="page">
+      <div class="page-header">
+        <div class="page-title"><i class="fa-solid fa-database"></i> 資料管理中心</div>
+        <div class="page-sub">上傳、下載、編輯您的採購資料</div>
+      </div>
+
+      <div class="sheet-info" id="sheet-info" style="display:none;">
+        <h4><i class="fa-solid fa-table"></i> 已載入的工作表</h4>
+        <div class="sheet-list" id="sheet-list"></div>
+      </div>
+
+      <div class="data-center-grid">
+        <div class="data-action-card upload" onclick="document.getElementById('fileInput').click()">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <h3>上傳 Excel 資料</h3>
+          <p>支援 .xlsx, .xls, .csv 格式<br>上傳後儀表板將自動更新</p>
+        </div>
+        <div class="data-action-card download" onclick="downloadTemplate()">
+          <i class="fa-solid fa-file-arrow-down"></i>
+          <h3>下載資料範本</h3>
+          <p>取得空白 Excel 範本<br>依照格式填寫後上傳</p>
+        </div>
+        <div class="data-action-card download" onclick="downloadCurrentData()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <h3>匯出目前資料</h3>
+          <p>將當前顯示的儀表板<br>資料匯出為 Excel</p>
+        </div>
+        <div class="data-action-card edit" onclick="showDataEditor()">
+          <i class="fa-solid fa-table"></i>
+          <h3>開啟資料編輯器</h3>
+          <p>在網頁上直接<br>檢視與編輯資料</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-header"><i class="fa-solid fa-circle-info"></i> 資料格式說明</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>工作表名</th><th>必需欄位</th><th>說明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="badge b-blue">支出明細</span></td><td>日期, 供應商, 品類, 金額</td><td>主要採購交易記錄</td></tr>
+              <tr><td><span class="badge b-green">供應商主檔</span></td><td>供應商, 準時率, 合格率, ESG</td><td>供應商基本資訊與績效</td></tr>
+              <tr><td><span class="badge b-gold">成本節約</span></td><td>類型, 金額, 日期</td><td>成本節約項目記錄</td></tr>
+              <tr><td><span class="badge b-red">品質數據</span></td><td>日期, 供應商, 缺陷類型, 數量</td><td>IQC 檢驗與異常記錄</td></tr>
+              <tr><td><span class="badge b-purple">計畫與實際</span></td><td>品類, 計劃量, 實際量</td><td>採購計劃執行追蹤</td></tr>
+              <tr><td><span class="badge b-blue">ESG評分</span></td><td>供應商, E, S, G 分數</td><td>供應商 ESG 評核</td></tr>
+              <tr><td><span class="badge b-green">合約管理</span></td><td>合約編號, 供應商, 到期日</td><td>合約生命週期追蹤</td></tr>
+              <tr><td><span class="badge b-gold">系統參數</span></td><td>參數名, 參數值</td><td>警示閾值與目標設定</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-cloud-arrow-up"></i> 匯入 Excel 資料</div>
+      <button class="modal-close" onclick="closeModal('uploadModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <i class="fa-solid fa-file-excel"></i>
+        <div class="upload-zone-title">拖放或點擊上傳</div>
+        <div class="upload-zone-sub">支援 .xlsx, .xls, .csv (最大 10MB)</div>
+      </div>
+      <div style="text-align:center;margin:16px 0;font-size:12px;color:var(--muted);">— 或 —</div>
+      <button class="btn btn-secondary" onclick="downloadTemplate()" style="width:100%;">
+        <i class="fa-solid fa-download"></i> 先下載範本再填寫
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Data Editor Modal -->
+<div class="modal-overlay" id="editorModal">
+  <div class="modal" style="width:900px;max-width:95vw;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-table"></i> 資料編輯器</div>
+      <button class="modal-close" onclick="closeModal('editorModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:12px;">
+        <select id="editor-sheet" onchange="loadSheetData()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:12px;">
+          <!-- JS populate -->
+        </select>
+      </div>
+      <div id="editor-container" style="max-height:400px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+        <!-- JS populate -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editorModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveEditedData()"><i class="fa-solid fa-save"></i> 儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// V4 PROCUREMENT ANALYTICS DASHBOARD
+// ============================================================
+
+// Register Chart.js plugins
+Chart.register(ChartDataLabels);
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+const AppData = {
+  isDemo: true,
+  lastUpdate: new Date().toLocaleString('zh-TW'),
+  filters: { year: 'all', quarter: 'all', category: 'all' },
+
+  // 支出明細
+  spend: [],
+  // 供應商主檔
+  suppliers: [],
+  // 成本節約
+  savings: [],
+  // 品質數據
+  quality: [],
+  // 計劃與實際
+  plans: [],
+  // ESG
+  esg: [],
+  // 合約
+  contracts: [],
+  // 系統參數
+  config: {}
+};
+
+// Chart instances cache
+const chartInstances = {};
+
+// ============================================================
+// DEMO DATA GENERATOR
+// ============================================================
+function generateDemoData() {
+  const categories = ['電子零組件', '機構件', '包材', '間接物料'];
+  const suppliers = ['光明供應商', '大成長城', '三商供應', '優質企業', '信賴合作', '高效原料', '創新科技', '永續供應'];
+  const departments = ['研發部', '生產部', '品質部', '採購部', '業務部'];
+  const riskLevels = ['低', '中', '高'];
+  const esgRatings = ['A', 'B', 'C', 'D'];
+  const defectTypes = ['外觀缺陷', '尺寸偏差', '成分超標', '包裝破損', '數量短缺'];
+  const contractStatuses = ['有效', '30天內到期', '已到期'];
+
+  // 支出明細
+  AppData.spend = [];
+  for (let i = 0; i < 200; i++) {
+    const date = new Date(2025, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+    const cat = categories[Math.floor(Math.random() * categories.length)];
+    const sup = suppliers[Math.floor(Math.random() * suppliers.length)];
+    AppData.spend.push({
+      日期: date.toISOString().split('T')[0],
+      供應商: sup,
+      品類: cat,
+      部門: departments[Math.floor(Math.random() * departments.length)],
+      金額: Math.floor(Math.random() * 500000) + 10000,
+      單價: Math.floor(Math.random() * 500) + 50,
+      數量: Math.floor(Math.random() * 1000) + 100
+    });
+  }
+
+  // 供應商主檔
+  AppData.suppliers = suppliers.map((name, i) => ({
+    供應商: name,
+    品類: categories[i % categories.length],
+    支出: Math.floor(Math.random() * 3000000) + 500000,
+    準時率: (Math.random() * 20 + 80).toFixed(1),
+    合格率: (Math.random() * 10 + 90).toFixed(1),
+    ESG: esgRatings[Math.floor(Math.random() * 4)],
+    風險: riskLevels[Math.floor(Math.random() * 3)],
+    評級: esgRatings[Math.floor(Math.random() * 4)],
+    評分: Math.floor(Math.random() * 30 + 70)
+  }));
+
+  // 成本節約
+  AppData.savings = [
+    { 類型: '價格談判', 金額: 450000, 日期: '2025-01-15', 來源: '電子零組件' },
+    { 類型: '規格標準化', 金額: 280000, 日期: '2025-02-20', 來源: '機構件' },
+    { 類型: '批量折扣', 金額: 380000, 日期: '2025-03-10', 來源: '包材' },
+    { 類型: '供應商整合', 金額: 520000, 日期: '2025-04-05', 來源: '間接物料' },
+    { 類型: '成本規避', 金額: 220000, 日期: '2025-05-18', 來源: '電子零組件' }
+  ];
+
+  // 品質數據
+  AppData.quality = [];
+  for (let i = 0; i < 50; i++) {
+    const date = new Date(2025, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+    AppData.quality.push({
+      日期: date.toISOString().split('T')[0],
+      供應商: suppliers[Math.floor(Math.random() * suppliers.length)],
+      品項: `品項-${Math.floor(Math.random() * 100)}`,
+      缺陷類型: defectTypes[Math.floor(Math.random() * defectTypes.length)],
+      數量: Math.floor(Math.random() * 50) + 1,
+      處理方式: ['退貨', '特採', '扣款', '改善報告'][Math.floor(Math.random() * 4)],
+      狀態: ['待處理', '處理中', '已完成'][Math.floor(Math.random() * 3)]
+    });
+  }
+
+  // 計劃與實際
+  AppData.plans = categories.map(cat => ({
+    品類: cat,
+    計劃量: Math.floor(Math.random() * 5000000) + 1000000,
+    實際量: Math.floor(Math.random() * 5000000) + 800000,
+    去年同期: Math.floor(Math.random() * 4000000) + 800000
+  }));
+
+  // ESG
+  AppData.esg = suppliers.map(name => ({
+    供應商: name,
+    E: Math.floor(Math.random() * 30 + 60),
+    S: Math.floor(Math.random() * 30 + 60),
+    G: Math.floor(Math.random() * 30 + 60),
+    總分: 0,
+    評級: 'B',
+    建議: '持續改善'
+  })).map(item => {
+    item.總分 = Math.round((item.E + item.S + item.G) / 3);
+    item.評級 = item.總分 >= 85 ? 'A' : item.總分 >= 70 ? 'B' : item.總分 >= 50 ? 'C' : 'D';
+    return item;
+  });
+
+  // 合約
+  AppData.contracts = suppliers.slice(0, 6).map((name, i) => {
+    const startDate = new Date(2024, i, 1);
+    const endDate = new Date(2026, i, 1);
+    const now = new Date();
+    let status = '有效';
+    const daysToExpiry = Math.floor((endDate - now) / (1000 * 60 * 60 * 24));
+    if (daysToExpiry < 0) status = '已到期';
+    else if (daysToExpiry <= 30) status = '30天內到期';
+    return {
+      合約編號: `CT-${2025}-${String(i + 1).padStart(3, '0')}`,
+      供應商: name,
+      品類: categories[i % categories.length],
+      簽約日: startDate.toISOString().split('T')[0],
+      到期日: endDate.toISOString().split('T')[0],
+      金額: Math.floor(Math.random() * 2000000) + 500000,
+      狀態: status
+    };
+  });
+
+  // 系統參數
+  AppData.config = {
+    targetSavings: 2000000,
+    targetOTD: 95,
+    targetQuality: 98,
+    riskThreshold: 80
+  };
+
+  AppData.isDemo = true;
+  updateDataStatus();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const pageInfo = {
+  summary: { title: '決策總覽', sub: '核心財務與風險 KPI 指標板' },
+  spend: { title: '支出多維分析', sub: 'Spend Cube 三維度建模分析' },
+  supplier: { title: '供應商績效與風險矩陣', sub: 'Kraljic 四象限分析 | 綜合評分排名' },
+  cost: { title: '成本節約與價格差異', sub: 'PPV | Cost Avoidance | 採購 ROI' },
+  quality: { title: '品質與交付追蹤', sub: 'SPC 管制圖 | 缺陷分析 | 交付及時率' },
+  deviation: { title: '計畫偏差管理', sub: '超採 | 漏採 | 執行缺口追蹤' },
+  risk: { title: '風險管控', sub: '地緣風險 | 供應商風險事件 | 緩解措施' },
+  esg: { title: 'ESG 永續評核', sub: '環境 | 社會 | 治理 三維度評分' },
+  contract: { title: '合約生命週期管理', sub: '合約到期預警 | 法遵管理' },
+  maturity: { title: '採購成熟度評估', sub: '五階段成熟度模型 | 診斷與改善路徑' },
+  simulation: { title: '情境決策模擬器', sub: 'What-If 情境分析 | 策略模擬' },
+  datacenter: { title: '資料管理中心', sub: '上傳、下載、編輯您的採購資料' }
+};
+
+function nav(page) {
+  // Update sidebar
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.dataset.page === page) item.classList.add('active');
+  });
+
+  // Update pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+
+  // Update topbar
+  if (pageInfo[page]) {
+    document.getElementById('page-title').textContent = pageInfo[page].title;
+    document.getElementById('page-sub').textContent = pageInfo[page].sub;
+  }
+
+  // Render charts for the page
+  renderPageCharts(page);
+}
+
+function renderPageCharts(page) {
+  // Destroy existing charts on this page
+  const pageEl = document.getElementById(`page-${page}`);
+  pageEl.querySelectorAll('canvas').forEach(canvas => {
+    const chartId = canvas.id;
+    if (chartInstances[chartId]) {
+      chartInstances[chartId].destroy();
+      delete chartInstances[chartId];
+    }
+  });
+
+  switch (page) {
+    case 'summary': renderSummaryCharts(); break;
+    case 'spend': renderSpendCharts(); break;
+    case 'supplier': renderSupplierCharts(); break;
+    case 'cost': renderCostCharts(); break;
+    case 'quality': renderQualityCharts(); break;
+    case 'deviation': renderDeviationCharts(); break;
+    case 'risk': renderRiskCharts(); break;
+    case 'esg': renderESGCharts(); break;
+    case 'contract': renderContractCharts(); break;
+    case 'maturity': renderMaturityCharts(); break;
+    case 'simulation': renderSimulationCharts(); break;
+  }
+}
+
+// ============================================================
+// FILE UPLOAD
+// ============================================================
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // Parse each sheet
+      AppData.spend = sheetToArray(workbook, '支出明細') || AppData.spend;
+      AppData.suppliers = sheetToArray(workbook, '供應商主檔') || AppData.suppliers;
+      AppData.savings = sheetToArray(workbook, '成本節約') || AppData.savings;
+      AppData.quality = sheetToArray(workbook, '品質數據') || AppData.quality;
+      AppData.plans = sheetToArray(workbook, '計畫與實際') || AppData.plans;
+      AppData.esg = sheetToArray(workbook, 'ESG評分') || AppData.esg;
+      AppData.contracts = sheetToArray(workbook, '合約管理') || AppData.contracts;
+      AppData.config = sheetToObject(workbook, '系統參數') || AppData.config;
+
+      AppData.isDemo = false;
+      AppData.lastUpdate = new Date().toLocaleString('zh-TW');
+      updateDataStatus();
+
+      // Show sheet info
+      showSheetInfo(workbook.SheetNames);
+
+      // Refresh current page
+      const currentPage = document.querySelector('.nav-item.active').dataset.page;
+      nav(currentPage);
+
+      alert('資料載入成功！');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('檔案讀取失敗，請確認格式正確。');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+function sheetToArray(workbook, name) {
+  const sheet = workbook.Sheets[name];
+  if (!sheet) return null;
+  const data = XLSX.utils.sheet_to_json(sheet);
+  return data.length > 0 ? data : null;
+}
+
+function sheetToObject(workbook, name) {
+  const sheet = workbook.Sheets[name];
+  if (!sheet) return null;
+  const data = XLSX.utils.sheet_to_json(sheet);
+  if (!data || data.length === 0) return null;
+  const obj = {};
+  data.forEach(row => {
+    const keys = Object.keys(row);
+    if (keys.length >= 2) {
+      obj[row[keys[0]]] = row[keys[1]];
+    }
+  });
+  return obj;
+}
+
+function showSheetInfo(sheets) {
+  const info = document.getElementById('sheet-info');
+  const list = document.getElementById('sheet-list');
+  info.style.display = 'block';
+  list.innerHTML = sheets.map(s => `<span class="sheet-tag">${s}</span>`).join('');
+}
+
+// ============================================================
+// FILE DOWNLOAD
+// ============================================================
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+
+  // Create template sheets
+  const spendTemplate = [
+    { '日期': '2025-01-01', '供應商': '範例供應商', '品類': '電子零組件', '部門': '研發部', '金額': 100000, '單價': 100, '數量': 1000 }
+  ];
+  const supplierTemplate = [
+    { '供應商': '範例供應商', '品類': '電子零組件', '支出': 1000000, '準時率': 95, '合格率': 99, 'ESG': 'A', '風險': '低', '評級': 'A', '評分': 90 }
+  ];
+  const savingsTemplate = [
+    { '類型': '價格談判', '金額': 50000, '日期': '2025-01-15', '來源': '電子零組件' }
+  ];
+  const qualityTemplate = [
+    { '日期': '2025-01-01', '供應商': '範例供應商', '品項': '品項-001', '缺陷類型': '外觀缺陷', '數量': 5, '處理方式': '退貨', '狀態': '待處理' }
+  ];
+  const plansTemplate = [
+    { '品類': '電子零組件', '計劃量': 5000000, '實際量': 4800000, '去年同期': 4500000 }
+  ];
+  const esgTemplate = [
+    { '供應商': '範例供應商', 'E': 80, 'S': 75, 'G': 85, '總分': 80, '評級': 'B', '建議': '持續改善' }
+  ];
+  const contractTemplate = [
+    { '合約編號': 'CT-2025-001', '供應商': '範例供應商', '品類': '電子零組件', '簽約日': '2025-01-01', '到期日': '2026-01-01', '金額': 1000000, '狀態': '有效' }
+  ];
+  const configTemplate = [
+    { '參數名': 'targetSavings', '參數值': 2000000 },
+    { '參數名': 'targetOTD', '參數值': 95 },
+    { '參數名': 'targetQuality', '參數值': 98 },
+    { '參數名': 'riskThreshold', '參數值': 80 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(spendTemplate), '支出明細');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(supplierTemplate), '供應商主檔');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(savingsTemplate), '成本節約');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(qualityTemplate), '品質數據');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(plansTemplate), '計畫與實際');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(esgTemplate), 'ESG評分');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contractTemplate), '合約管理');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(configTemplate), '系統參數');
+
+  XLSX.writeFile(wb, 'Procurement_Template_V4.xlsx');
+}
+
+function downloadCurrentData() {
+  const wb = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.spend), '支出明細');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.suppliers), '供應商主檔');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.savings), '成本節約');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.quality), '品質數據');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.plans), '計畫與實際');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.esg), 'ESG評分');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(AppData.contracts), '合約管理');
+
+  XLSX.writeFile(wb, 'Procurement_Data_Export.xlsx');
+}
+
+// ============================================================
+// DATA EDITOR
+// ============================================================
+function showDataEditor() {
+  const sheetNames = ['支出明細', '供應商主檔', '成本節約', '品質數據', '計畫與實際', 'ESG評分', '合約管理'];
+  const sheetSelect = document.getElementById('editor-sheet');
+  sheetSelect.innerHTML = sheetNames.map(s => `<option value="${s}">${s}</option>`).join('');
+
+  loadSheetData();
+  document.getElementById('editorModal').classList.add('show');
+}
+
+function loadSheetData() {
+  const sheetName = document.getElementById('editor-sheet').value;
+  const data = getDataBySheetName(sheetName);
+  const container = document.getElementById('editor-container');
+
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">無資料</div>';
+    return;
+  }
+
+  const keys = Object.keys(data[0]);
+  let html = '<table style="width:auto;min-width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<thead><tr>' + keys.map(k => `<th style="padding:10px 12px;background:var(--surface2);color:var(--text);border-bottom:2px solid var(--primary);white-space:nowrap;">${k}</th>`).join('') + '</tr></thead>';
+  html += '<tbody>';
+  data.forEach((row, i) => {
+    html += '<tr>' + keys.map(k => `<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;">
+      <input type="text" value="${row[k] ?? ''}" data-row="${i}" data-key="${k}"
+        style="background:transparent;border:none;color:inherit;width:100px;font-size:12px;outline:none;"
+        onchange="editCell(${i},'${k}',this.value)">
+    </td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function getDataBySheetName(name) {
+  const map = {
+    '支出明細': 'spend',
+    '供應商主檔': 'suppliers',
+    '成本節約': 'savings',
+    '品質數據': 'quality',
+    '計畫與實際': 'plans',
+    'ESG評分': 'esg',
+    '合約管理': 'contracts'
+  };
+  const key = map[name];
+  return key ? AppData[key] : [];
+}
+
+function editCell(row, key, value) {
+  // Simple update - actual implementation would update AppData
+  console.log(`Edit: row=${row}, key=${key}, value=${value}`);
+}
+
+function saveEditedData() {
+  alert('資料儲存功能已更新至 AppData。');
+  closeModal('editorModal');
+  nav(document.querySelector('.nav-item.active').dataset.page);
+}
+
+// ============================================================
+// CHART RENDERERS
+// ============================================================
+function renderSummaryCharts() {
+  // KPI calculations
+  const totalSpend = AppData.spend.reduce((sum, d) => sum + (d.金額 || 0), 0);
+  const totalSaving = AppData.savings.reduce((sum, d) => sum + (d.金額 || 0), 0);
+  const avgOTD = AppData.suppliers.length > 0
+    ? (AppData.suppliers.reduce((sum, d) => sum + parseFloat(d.準時率 || 0), 0) / AppData.suppliers.length).toFixed(1)
+    : 0;
+  const avgQuality = AppData.suppliers.length > 0
+    ? (AppData.suppliers.reduce((sum, d) => sum + parseFloat(d.合格率 || 0), 0) / AppData.suppliers.length).toFixed(1)
+    : 0;
+  const riskCount = AppData.suppliers.filter(d => d.風險 === '高').length;
+
+  document.getElementById('kpi-spend').textContent = formatCurrency(totalSpend);
+  document.getElementById('kpi-saving').textContent = formatCurrency(totalSaving);
+  document.getElementById('kpi-suppliers').textContent = AppData.suppliers.length;
+  document.getElementById('kpi-otd').textContent = avgOTD + '%';
+  document.getElementById('kpi-quality').textContent = avgQuality + '%';
+  document.getElementById('kpi-risk-count').textContent = riskCount;
+
+  // Trend Chart
+  const monthlySpend = {};
+  AppData.spend.forEach(d => {
+    const month = d.日期?.substring(0, 7) || '2025-01';
+    monthlySpend[month] = (monthlySpend[month] || 0) + (d.金額 || 0);
+  });
+  const sortedMonths = Object.keys(monthlySpend).sort();
+  const trendCanvas = document.getElementById('chart-trend');
+  chartInstances['chart-trend'] = new Chart(trendCanvas, {
+    type: 'line',
+    data: {
+      labels: sortedMonths.map(m => m.substring(5)),
+      datasets: [{
+        label: '月度支出',
+        data: sortedMonths.map(m => monthlySpend[m]),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: getLineOptions()
+  });
+
+  // Category Donut
+  const categorySpend = {};
+  AppData.spend.forEach(d => {
+    categorySpend[d.品類] = (categorySpend[d.品類] || 0) + (d.金額 || 0);
+  });
+  const catCanvas = document.getElementById('chart-category');
+  chartInstances['chart-category'] = new Chart(catCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(categorySpend),
+      datasets: [{
+        data: Object.values(categorySpend),
+        backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444']
+      }]
+    },
+    options: getDonutOptions()
+  });
+
+  // Risk Distribution
+  const riskDist = { '低': 0, '中': 0, '高': 0 };
+  AppData.suppliers.forEach(d => { riskDist[d.風險] = (riskDist[d.風險] || 0) + 1; });
+  const riskCanvas = document.getElementById('chart-risk-dist');
+  chartInstances['chart-risk-dist'] = new Chart(riskCanvas, {
+    type: 'pie',
+    data: {
+      labels: Object.keys(riskDist),
+      datasets: [{
+        data: Object.values(riskDist),
+        backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+      }]
+    },
+    options: getDonutOptions()
+  });
+
+  // Radar Chart
+  const radarCanvas = document.getElementById('chart-radar');
+  chartInstances['chart-radar'] = new Chart(radarCanvas, {
+    type: 'radar',
+    data: {
+      labels: ['成本控制', '供應商管理', '品質', '交付', '風險', '永續'],
+      datasets: [{
+        label: '實際',
+        data: [85, 78, 92, 88, 72, 68],
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.2)'
+      }, {
+        label: '目標',
+        data: [90, 85, 95, 90, 80, 75],
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderDash: [5, 5]
+      }]
+    },
+    options: getRadarOptions()
+  });
+
+  // Alerts
+  renderAlerts();
+}
+
+function renderSpendCharts() {
+  // Category Bar
+  const categorySpend = {};
+  AppData.spend.forEach(d => {
+    categorySpend[d.品類] = (categorySpend[d.品類] || 0) + (d.金額 || 0);
+  });
+  const spendCatCanvas = document.getElementById('chart-spend-category');
+  chartInstances['chart-spend-category'] = new Chart(spendCatCanvas, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(categorySpend),
+      datasets: [{
+        label: '支出',
+        data: Object.values(categorySpend),
+        backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b']
+      }]
+    },
+    options: getBarOptions()
+  });
+
+  // Department Bar
+  const deptSpend = {};
+  AppData.spend.forEach(d => {
+    deptSpend[d.部門] = (deptSpend[d.部門] || 0) + (d.金額 || 0);
+  });
+  const deptCanvas = document.getElementById('chart-spend-dept');
+  chartInstances['chart-spend-dept'] = new Chart(deptCanvas, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(deptSpend),
+      datasets: [{
+        label: '支出',
+        data: Object.values(deptSpend),
+        backgroundColor: '#0ea5e9'
+      }]
+    },
+    options: getBarOptions()
+  });
+
+  // Maverick Spend
+  const contractSpend = AppData.spend.filter(d => d.金額 > 100000).reduce((sum, d) => sum + d.金額, 0);
+  const maverickSpend = AppData.spend.filter(d => d.金額 <= 100000).reduce((sum, d) => sum + d.金額, 0);
+  const maverickCanvas = document.getElementById('chart-maverick');
+  chartInstances['chart-maverick'] = new Chart(maverickCanvas, {
+    type: 'bar',
+    data: {
+      labels: ['合約支出', 'Maverick Spend'],
+      datasets: [{
+        data: [contractSpend, maverickSpend],
+        backgroundColor: ['#10b981', '#ef4444']
+      }]
+    },
+    options: { ...getBarOptions(), indexAxis: 'y' }
+  });
+
+  // Top Suppliers Table
+  const supSpend = {};
+  AppData.spend.forEach(d => {
+    supSpend[d.供應商] = (supSpend[d.供應商] || 0) + (d.金額 || 0);
+  });
+  const topSuppliers = Object.entries(supSpend).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const totalSpend = topSuppliers.reduce((sum, [, v]) => sum + v, 0);
+  const tableBody = document.getElementById('table-top-suppliers');
+  tableBody.innerHTML = topSuppliers.map(([name, amount], i) => {
+    const sup = AppData.suppliers.find(s => s.供應商 === name) || {};
+    const pct = ((amount / totalSpend) * 100).toFixed(1);
+    const status = parseFloat(sup.風險) === '高' ? '<span class="badge b-red">高風險</span>' : '<span class="badge b-green">正常</span>';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${name}</td>
+      <td>${sup.品類 || '-'}</td>
+      <td>${formatCurrency(amount)}</td>
+      <td>${Math.floor(Math.random() * 200) + 50}</td>
+      <td>${pct}%</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSupplierCharts() {
+  // Quadrant Scatter
+  const quadCanvas = document.getElementById('chart-supplier-quad');
+  chartInstances['chart-supplier-quad'] = new Chart(quadCanvas, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: '供應商',
+        data: AppData.suppliers.map(s => ({
+          x: parseFloat(s.合格率) || 90,
+          y: parseFloat(s.準時率) || 90,
+          r: (parseInt(s.支出) / 500000) || 10
+        })),
+        backgroundColor: AppData.suppliers.map(s =>
+          s.風險 === '高' ? 'rgba(239,68,68,0.7)' :
+          s.風險 === '中' ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.7)'
+        )
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: '合格率 (%)', color: '#94a3b8' }, min: 80, max: 100 },
+        y: { title: { display: true, text: '準時率 (%)', color: '#94a3b8' }, min: 80, max: 100 }
+      }
+    }
+  });
+
+  // Ranking Bar
+  const sorted = [...AppData.suppliers].sort((a, b) => (b.評分 || 0) - (a.評分 || 0)).slice(0, 8);
+  const rankCanvas = document.getElementById('chart-supplier-rank');
+  chartInstances['chart-supplier-rank'] = new Chart(rankCanvas, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s.供應商.substring(0, 6)),
+      datasets: [{
+        label: '評分',
+        data: sorted.map(s => s.評分 || 0),
+        backgroundColor: '#6366f1'
+      }]
+    },
+    options: getBarOptions()
+  });
+
+  // Suppliers Table
+  const supTable = document.getElementById('table-suppliers');
+  supTable.innerHTML = AppData.suppliers.slice(0, 10).map(s => {
+    const riskBadge = s.風險 === '高' ? 'b-red' : s.風險 === '中' ? 'b-gold' : 'b-green';
+    const ratingBadge = s.評級 === 'A' ? 'b-green' : s.評級 === 'B' ? 'b-blue' : s.評級 === 'C' ? 'b-gold' : 'b-red';
+    return `<tr>
+      <td>${s.供應商}</td>
+      <td>${s.品類}</td>
+      <td>${formatCurrency(s.支出)}</td>
+      <td>${s.準時率}%</td>
+      <td>${s.合格率}%</td>
+      <td><span class="badge b-${s.ESG === 'A' ? 'green' : s.ESG === 'B' ? 'blue' : 'gold'}">${s.ESG}</span></td>
+      <td><span class="badge ${riskBadge}">${s.風險}</span></td>
+      <td><span class="badge ${ratingBadge}">${s.評級}</span></td>
+      <td><button class="btn btn-secondary" style="padding:4px 8px;font-size:10px;">檢視</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCostCharts() {
+  const totalAvoidance = AppData.savings.reduce((sum, d) => sum + (d.金額 || 0), 0);
+  document.getElementById('kpi-avoidance').textContent = formatCurrency(totalAvoidance);
+  document.getElementById('kpi-ppv-detail').textContent = formatCurrency(Math.floor(Math.random() * 200000));
+  document.getElementById('kpi-roi-detail').textContent = '420%';
+
+  // Price Index
+  const priceCanvas = document.getElementById('chart-price-index');
+  chartInstances['chart-price-index'] = new Chart(priceCanvas, {
+    type: 'line',
+    data: {
+      labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+      datasets: [
+        { label: '本年', data: [100, 102, 98, 105, 103, 108, 106, 110, 107, 112, 109, 115], borderColor: '#6366f1', tension: 0.4 },
+        { label: '去年', data: [95, 97, 96, 98, 99, 101, 100, 102, 103, 104, 105, 106], borderColor: '#94a3b8', tension: 0.4 },
+        { label: '市場', data: [98, 100, 97, 103, 102, 106, 105, 108, 106, 110, 108, 113], borderColor: '#f59e0b', tension: 0.4, borderDash: [5, 5] }
+      ]
+    },
+    options: getLineOptions()
+  });
+
+  // Savings Source
+  const sourceSum = {};
+  AppData.savings.forEach(d => { sourceSum[d.來源] = (sourceSum[d.來源] || 0) + d.金額; });
+  const saveSrcCanvas = document.getElementById('chart-saving-source');
+  chartInstances['chart-saving-source'] = new Chart(saveSrcCanvas, {
+    type: 'pie',
+    data: { labels: Object.keys(sourceSum), datasets: [{ data: Object.values(sourceSum), backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'] }] },
+    options: getDonutOptions()
+  });
+
+  // Savings Trend
+  const monthlySave = { '2025-01': 120000, '2025-02': 150000, '2025-03': 180000, '2025-04': 200000, '2025-05': 160000 };
+  const saveTrendCanvas = document.getElementById('chart-saving-trend');
+  chartInstances['chart-saving-trend'] = new Chart(saveTrendCanvas, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(monthlySave),
+      datasets: [{ label: '節約', data: Object.values(monthlySave), backgroundColor: '#10b981' }]
+    },
+    options: getBarOptions()
+  });
+
+  // Price Variance Table
+  const priceItems = ['電子零組件-A', '機構件-B', '包材-C', '間接物料-D'];
+  const varTable = document.getElementById('table-price-variance');
+  varTable.innerHTML = priceItems.map(item => {
+    const base = 100, thisYear = base * (0.9 + Math.random() * 0.3), lastYear = base * (0.95 + Math.random() * 0.2), market = base * (0.92 + Math.random() * 0.25);
+    const variance = ((thisYear - market) / market * 100).toFixed(1);
+    const status = variance > 5 ? '<span class="badge b-red">偏高</span>' : variance < -5 ? '<span class="badge b-green">偏低</span>' : '<span class="badge b-gold">正常</span>';
+    return `<tr>
+      <td>${item}</td><td>${base.toFixed(0)}</td><td>${thisYear.toFixed(0)}</td><td>${lastYear.toFixed(0)}</td><td>${market.toFixed(0)}</td>
+      <td class="${variance > 0 ? 'b-red' : 'b-green'}" style="color:${variance > 0 ? 'var(--red)' : 'var(--green)'}">${variance}%</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderQualityCharts() {
+  document.getElementById('kpi-iqa').textContent = '98.5%';
+  document.getElementById('kpi-on-time').textContent = '94.2%';
+  document.getElementById('kpi-dppm').textContent = '125 PPM';
+  document.getElementById('kpi-top-defect').textContent = '外觀缺陷';
+
+  // SPC Chart
+  const spcCanvas = document.getElementById('chart-quality-spc');
+  const spcData = Array.from({ length: 20 }, (_, i) => 98 + (Math.random() - 0.5) * 4);
+  chartInstances['chart-quality-spc'] = new Chart(spcCanvas, {
+    type: 'line',
+    data: {
+      labels: Array.from({ length: 20 }, (_, i) => `批次${i + 1}`),
+      datasets: [
+        { label: '合格率', data: spcData, borderColor: '#10b981', tension: 0.4 },
+        { label: 'UCL', data: Array(20).fill(100), borderColor: '#ef4444', borderDash: [5, 5] },
+        { label: 'LCL', data: Array(20).fill(90), borderColor: '#ef4444', borderDash: [5, 5] }
+      ]
+    },
+    options: getLineOptions()
+  });
+
+  // Defect Pie
+  const defectCount = {};
+  AppData.quality.forEach(d => { defectCount[d.缺陷類型] = (defectCount[d.缺陷類型] || 0) + (d.數量 || 0); });
+  const defectCanvas = document.getElementById('chart-defect-pie');
+  chartInstances['chart-defect-pie'] = new Chart(defectCanvas, {
+    type: 'doughnut',
+    data: { labels: Object.keys(defectCount), datasets: [{ data: Object.values(defectCount), backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#0ea5e9', '#10b981'] }] },
+    options: getDonutOptions()
+  });
+
+  // Quality Table
+  const qualTable = document.getElementById('table-quality');
+  qualTable.innerHTML = AppData.quality.slice(0, 10).map(q => {
+    const statusBadge = q.狀態 === '已完成' ? 'b-green' : q.狀態 === '處理中' ? 'b-gold' : 'b-red';
+    return `<tr>
+      <td>${q.日期}</td><td>${q.供應商}</td><td>${q.品項}</td><td>${q.缺陷類型}</td><td>${q.數量}</td>
+      <td>${q.處理方式}</td><td><span class="badge ${statusBadge}">${q.狀態}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDeviationCharts() {
+  document.getElementById('kpi-completion').textContent = '92.4%';
+  document.getElementById('kpi-over').textContent = '5';
+  document.getElementById('kpi-under').textContent = '3';
+
+  // Plan vs Actual
+  const planCanvas = document.getElementById('chart-plan-compare');
+  chartInstances['chart-plan-compare'] = new Chart(planCanvas, {
+    type: 'bar',
+    data: {
+      labels: AppData.plans.map(p => p.品類),
+      datasets: [
+        { label: '計劃量', data: AppData.plans.map(p => p.計劃量), backgroundColor: '#6366f1' },
+        { label: '實際量', data: AppData.plans.map(p => p.實際量), backgroundColor: '#0ea5e9' },
+        { label: '去年同期', data: AppData.plans.map(p => p.去年同期), backgroundColor: '#94a3b8' }
+      ]
+    },
+    options: { ...getBarOptions(), scales: { y: { beginAtZero: true } } }
+  });
+
+  // Deviation Table
+  const devTable = document.getElementById('table-deviation');
+  devTable.innerHTML = AppData.plans.map(p => {
+    const variance = ((p.實際量 - p.計劃量) / p.計劃量 * 100).toFixed(1);
+    const yoy = ((p.實際量 - p.去年同期) / p.去年同期 * 100).toFixed(1);
+    const status = variance > 0 ? '<span class="badge b-gold">超採</span>' : '<span class="badge b-red">漏採</span>';
+    return `<tr>
+      <td>${p.品類}</td><td>${formatCurrency(p.計劃量)}</td><td>${formatCurrency(p.實際量)}</td>
+      <td style="color:${variance > 0 ? 'var(--gold)' : 'var(--red)'}">${variance}%</td>
+      <td>${formatCurrency(p.去年同期)}</td><td style="color:${yoy > 0 ? 'var(--green)' : 'var(--red)'}">${yoy}%</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRiskCharts() {
+  document.getElementById('kpi-risk-sup').textContent = AppData.suppliers.filter(s => s.風險 === '高').length;
+  document.getElementById('kpi-risk-amount').textContent = '$2.4M';
+  document.getElementById('kpi-mitigation').textContent = '68%';
+
+  // Geo Risk
+  const geoCanvas = document.getElementById('chart-geo-risk');
+  chartInstances['chart-geo-risk'] = new Chart(geoCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['台灣', '中國', '日本', '東南亞', '其他'],
+      datasets: [{ data: [45, 30, 15, 8, 2], backgroundColor: ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#94a3b8'] }]
+    },
+    options: getDonutOptions()
+  });
+
+  // Risk Events
+  const eventsDiv = document.getElementById('risk-events');
+  eventsDiv.innerHTML = `
+    <div class="alert-box"><div><div class="alert-title">供應商 A - 交期延誤風險</div><div class="alert-desc">可能被要求暫停出貨</div></div><span class="badge b-red">高</span></div>
+    <div class="alert-box warning"><div><div class="alert-title">原材料價格上漲</div><div class="alert-desc">鋁合金報價 +15%</div></div><span class="badge b-gold">中</span></div>
+    <div class="alert-box info"><div><div class="alert-title">供應商 C - ESG 評級下調</div><div class="alert-desc">環境合規問題</div></div><span class="badge b-blue">低</span></div>
+  `;
+
+  // Risk Table
+  const riskTable = document.getElementById('table-risk');
+  riskTable.innerHTML = AppData.suppliers.slice(0, 6).map(s => {
+    const riskIdx = s.風險 === '高' ? 85 : s.風險 === '中' ? 55 : 25;
+    const impact = s.風險 === '高' ? '高' : s.風險 === '中' ? '中' : '低';
+    const prob = s.風險 === '高' ? '高' : s.リスク === '中' ? '中' : '低';
+    return `<tr>
+      <td>${s.供應商}</td><td>供應中斷</td><td><span class="badge ${s.リスク === '高' ? 'b-red' : 'b-gold'}">${riskIdx}</span></td>
+      <td>${impact}</td><td>${prob}</td><td>尋找替代供應商</td><td><span class="badge b-gold">執行中</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderESGCharts() {
+  document.getElementById('kpi-esg-e').textContent = '76';
+  document.getElementById('kpi-esg-s').textContent = '72';
+  document.getElementById('kpi-esg-g').textContent = '81';
+
+  // ESG Supplier
+  const esgSupCanvas = document.getElementById('chart-esg-supplier');
+  chartInstances['chart-esg-supplier'] = new Chart(esgSupCanvas, {
+    type: 'bar',
+    data: {
+      labels: AppData.esg.slice(0, 8).map(s => s.供應商.substring(0, 6)),
+      datasets: [
+        { label: 'E', data: AppData.esg.slice(0, 8).map(s => s.E), backgroundColor: '#10b981' },
+        { label: 'S', data: AppData.esg.slice(0, 8).map(s => s.S), backgroundColor: '#0ea5e9' },
+        { label: 'G', data: AppData.esg.slice(0, 8).map(s => s.G), backgroundColor: '#6366f1' }
+      ]
+    },
+    options: getBarOptions()
+  });
+
+  // Carbon
+  const carbonCanvas = document.getElementById('chart-carbon');
+  chartInstances['chart-carbon'] = new Chart(carbonCanvas, {
+    type: 'line',
+    data: {
+      labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+      datasets: [
+        { label: 'Scope 3 排放', data: [120, 115, 118, 110, 108, 105], borderColor: '#10b981', tension: 0.4 }
+      ]
+    },
+    options: getLineOptions()
+  });
+
+  // ESG Table
+  const esgTable = document.getElementById('table-esg');
+  esgTable.innerHTML = AppData.esg.slice(0, 8).map(e => {
+    const ratingClass = e.評級 === 'A' ? 'b-green' : e.評級 === 'B' ? 'b-blue' : e.評級 === 'C' ? 'b-gold' : 'b-red';
+    return `<tr>
+      <td>${e.供應商}</td><td>${e.E}</td><td>${e.S}</td><td>${e.G}</td><td>${e.總分}</td>
+      <td><span class="badge ${ratingClass}">${e.評級}</span></td><td>${e.建議}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderContractCharts() {
+  const expiring = AppData.contracts.filter(c => c.狀態 === '30天內到期').length;
+  const expired = AppData.contracts.filter(c => c.狀態 === '已到期').length;
+  document.getElementById('kpi-contracts').textContent = AppData.contracts.length;
+  document.getElementById('kpi-expiring').textContent = expiring;
+  document.getElementById('kpi-expired').textContent = expired;
+  document.getElementById('kpi-avg-life').textContent = '14 月';
+
+  // Timeline
+  const timelineCanvas = document.getElementById('chart-contract-timeline');
+  chartInstances['chart-contract-timeline'] = new Chart(timelineCanvas, {
+    type: 'bar',
+    data: {
+      labels: AppData.contracts.map(c => c.供應商.substring(0, 6)),
+      datasets: [{
+        label: '剩餘天數',
+        data: AppData.contracts.map(c => {
+          const days = Math.floor((new Date(c.到期日) - new Date()) / (1000 * 60 * 60 * 24));
+          return Math.max(0, days);
+        }),
+        backgroundColor: AppData.contracts.map(c =>
+          c.狀態 === '已到期' ? '#ef4444' : c.狀態 === '30天內到期' ? '#f59e0b' : '#10b981'
+        )
+      }]
+    },
+    options: getBarOptions()
+  });
+
+  // Contract Table
+  const contTable = document.getElementById('table-contracts');
+  contTable.innerHTML = AppData.contracts.map(c => {
+    const statusClass = c.狀態 === '已到期' ? 'b-red' : c.狀態 === '30天內到期' ? 'b-gold' : 'b-green';
+    return `<tr>
+      <td>${c.合約編號}</td><td>${c.供應商}</td><td>${c.品類}</td><td>${c.簽約日}</td><td>${c.到期日}</td>
+      <td>${formatCurrency(c.金額)}</td><td><span class="badge ${statusClass}">${c.狀態}</span></td>
+      <td><button class="btn btn-secondary" style="padding:4px 8px;font-size:10px;">檢視</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMaturityCharts() {
+  // Radar
+  const maturityCanvas = document.getElementById('chart-maturity-radar');
+  chartInstances['chart-maturity-radar'] = new Chart(maturityCanvas, {
+    type: 'radar',
+    data: {
+      labels: ['策略與規劃', '供應商管理', '成本控制', '流程效率', '風險合規', '永續發展'],
+      datasets: [{
+        label: '當前',
+        data: [65, 72, 78, 68, 75, 60],
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.2)'
+      }]
+    },
+    options: getRadarOptions()
+  });
+
+  // Trend
+  const trendCanvas = document.getElementById('chart-maturity-trend');
+  chartInstances['chart-maturity-trend'] = new Chart(trendCanvas, {
+    type: 'line',
+    data: {
+      labels: ['2023-Q1', '2023-Q2', '2023-Q3', '2023-Q4', '2024-Q1', '2024-Q2'],
+      datasets: [
+        { label: '策略', data: [45, 48, 52, 55, 58, 65], borderColor: '#6366f1', tension: 0.4 },
+        { label: '流程', data: [50, 52, 55, 60, 64, 68], borderColor: '#0ea5e9', tension: 0.4 }
+      ]
+    },
+    options: getLineOptions()
+  });
+
+  // Maturity Table
+  const matTable = document.getElementById('table-maturity');
+  matTable.innerHTML = `
+    <tr><td>當前等級</td><td>L3</td><td>L3</td><td>L4</td><td>L3</td><td>L2</td><td>L3.2</td><td><span class="badge b-gold">診斷階段</span></td></tr>
+    <tr><td>目標等級</td><td>L4</td><td>L4</td><td>L4</td><td>L4</td><td>L3</td><td>L4</td><td><span class="badge b-blue">預測階段</span></td></tr>
+    <tr><td>差距</td><td>+1</td><td>+1</td><td>0</td><td>+1</td><td>+1</td><td>+0.8</td><td>-</td></tr>
+  `;
+}
+
+function renderSimulationCharts() {
+  const simCanvas = document.getElementById('chart-simulation');
+  if (!chartInstances['chart-simulation']) {
+    chartInstances['chart-simulation'] = new Chart(simCanvas, {
+      type: 'line',
+      data: {
+        labels: ['基準', '+5%', '+10%', '+15%', '+20%', '+25%'],
+        datasets: [
+          { label: '預測支出', data: [100, 105, 110, 115, 120, 125], borderColor: '#6366f1', tension: 0.4 },
+          { label: '預測風險', data: [50, 55, 62, 70, 80, 90], borderColor: '#ef4444', tension: 0.4 }
+        ]
+      },
+      options: getLineOptions()
+    });
+  }
+
+  updateSimulationDisplay();
+}
+
+function updateSimulation() {
+  const price = parseInt(document.getElementById('sim-price').value);
+  const suppliers = parseInt(document.getElementById('sim-suppliers').value);
+  const demand = parseInt(document.getElementById('sim-demand').value);
+
+  document.getElementById('sim-price-val').textContent = (price > 0 ? '+' : '') + price + '%';
+  document.getElementById('sim-suppliers-val').textContent = (suppliers > 0 ? '+' : '') + suppliers + '%';
+  document.getElementById('sim-demand-val').textContent = (demand > 0 ? '+' : '') + demand + '%';
+
+  updateSimulationDisplay();
+
+  // Update simulation insights
+  const insights = document.getElementById('simulation-insights');
+  insights.innerHTML = `
+    <p><i class="fa-solid fa-lightbulb" style="color:var(--gold);margin-right:8px;"></i>
+    <strong>情境分析：</strong>若價格上漲 ${price > 0 ? '+' : ''}${price}%，預估採購支出將增加約 ${(price * 0.8).toFixed(0)} 萬元。
+    ${suppliers > 0 ? `供應商家數增加 ${suppliers}% 可能稀釋採購量，建議重新談判合約。<br>` : ''}
+    ${demand > 0 ? `需求增加 ${demand}% 需評估庫存準備，避免缺料風險。<br>` : ''}
+    <strong>建議：</strong>加強 ${price > 10 ? '成本談判' : '供應商關係維護'}，${demand > 10 ? '提前備貨' : '維持安全庫存'}。
+    </p>
+  `;
+}
+
+function updateSimulationDisplay() {
+  const base = 8000000;
+  const price = parseInt(document.getElementById('sim-price').value) / 100;
+  const suppliers = parseInt(document.getElementById('sim-suppliers').value) / 100;
+  const demand = parseInt(document.getElementById('sim-demand').value) / 100;
+
+  const newSpend = base * (1 + price + demand * 0.5);
+  const newSave = base * 0.05 * (1 - suppliers * 0.3);
+  const newRisk = 50 + price * 100 + suppliers * 20 + demand * 30;
+
+  document.getElementById('sim-spend').textContent = formatCurrency(newSpend);
+  document.getElementById('sim-save').textContent = formatCurrency(newSave);
+  document.getElementById('sim-risk').textContent = Math.min(100, Math.round(newRisk));
+}
+
+function resetSimulation() {
+  document.getElementById('sim-price').value = 0;
+  document.getElementById('sim-suppliers').value = 0;
+  document.getElementById('sim-demand').value = 0;
+  updateSimulation();
+}
+
+function renderAlerts() {
+  const container = document.getElementById('alert-container');
+  const alerts = [
+    { type: 'critical', title: '供應商 A 風險評級升至 HIGH', desc: '需立即介入整改', badge: '緊急' },
+    { type: 'warning', title: '3 項物料庫存低於安全水位', desc: '請儘速補貨', badge: '警告' },
+    { type: 'info', title: 'Q4 成本節約目標達成率 92%', desc: '預計可超額完成', badge: '資訊' }
+  ];
+
+  container.innerHTML = alerts.map(a => `
+    <div class="alert-box ${a.type === 'warning' ? 'warning' : a.type === 'info' ? 'info' : ''}">
+      <div>
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+      <span class="badge ${a.type === 'critical' ? 'b-red' : a.type === 'warning' ? 'b-gold' : 'b-blue'}">${a.badge}</span>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// CHART OPTIONS HELPERS
+// ============================================================
+function getLineOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+      datalabels: { display: false }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(128, 128, 128, 0.15)' }, ticks: { color: '#94a3b8' } },
+      y: { grid: { color: 'rgba(128, 128, 128, 0.15)' }, ticks: { color: '#94a3b8' } }
+    }
+  };
+}
+
+function getBarOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+      datalabels: { display: false }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+      y: { grid: { color: 'rgba(128, 128, 128, 0.15)' }, ticks: { color: '#94a3b8' } }
+    }
+  };
+}
+
+function getDonutOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 }, padding: 15 } },
+      datalabels: { display: false }
+    }
+  };
+}
+
+function getRadarOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+    scales: {
+      r: {
+        grid: { color: 'rgba(128, 128, 128, 0.15)' },
+        angleLines: { color: 'rgba(128, 128, 128, 0.15)' },
+        pointLabels: { color: '#94a3b8', font: { size: 10 } },
+        ticks: { display: false }
+      }
+    }
+  };
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function formatCurrency(val) {
+  if (val >= 10000000) return '$' + (val / 10000000).toFixed(1) + 'M';
+  if (val >= 10000) return '$' + (val / 10000).toFixed(0) + 'K';
+  return '$' + val.toFixed(0);
+}
+
+function updateDataStatus() {
+  const dot = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  if (AppData.isDemo) {
+    dot.className = 'data-status-dot demo';
+    text.textContent = '範例資料';
+  } else {
+    dot.className = 'data-status-dot live';
+    text.textContent = `已更新: ${AppData.lastUpdate}`;
+  }
+}
+
+function applyFilters() {
+  AppData.filters.year = document.getElementById('flt-year').value;
+  AppData.filters.quarter = document.getElementById('flt-quarter').value;
+  AppData.filters.category = document.getElementById('flt-category').value;
+  nav(document.querySelector('.nav-item.active').dataset.page);
+}
+
+function toggleTheme() {
+  const body = document.body;
+  const btn = document.querySelector('.theme-toggle i');
+  if (body.getAttribute('data-theme') === 'light') {
+    body.removeAttribute('data-theme');
+    btn.className = 'fa-solid fa-moon';
+  } else {
+    body.setAttribute('data-theme', 'light');
+    btn.className = 'fa-solid fa-sun';
+  }
+}
+
+function showDataCenter() {
+  nav('datacenter');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  generateDemoData();
+  nav('summary');
+});
+
+// Drag and drop
+const uploadZone = document.getElementById('uploadZone');
+if (uploadZone) {
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const input = document.getElementById('fileInput');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handleFileUpload(input);
+    }
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>採購智能分析平台 V3.0</title>
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/js/all.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-card2: #172033;
+  --bg-hover: rgba(59,130,246,0.1);
+  --border: rgba(255,255,255,0.05);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent2: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #06b6d4;
+  --purple: #8b5cf6;
+}
+body.light {
+  --bg-primary: #faf7f2;
+  --bg-secondary: #f0ebe3;
+  --bg-card: #ffffff;
+  --bg-card2: #f5f0ea;
+  --bg-hover: rgba(59,130,246,0.08);
+  --border: rgba(0,0,0,0.08);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', 'Microsoft JhengHei', Arial, sans-serif; background: var(--bg-primary); color: var(--text-primary); overflow-x: hidden; transition: background 0.3s, color 0.3s; }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, #334155 50%, var(--bg-secondary) 100%);
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  position: relative; overflow: hidden;
+}
+.header::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 20% 50%, rgba(56,189,248,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+.header-left h1 { font-size: 24px; color: var(--accent); position: relative; }
+.header-left .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.header-left .last-update { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* Buttons */
+.btn {
+  padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; border: none;
+  display: inline-flex; align-items: center; gap: 7px; transition: all 0.25s; font-family: inherit;
+}
+.btn-primary { background: linear-gradient(135deg, var(--accent2), #1d4ed8); color: #fff; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
+.btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-success { background: linear-gradient(135deg, var(--success), #059669); color: #fff; }
+.btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
+#fileInput { display: none; }
+
+/* Navigation */
+.nav {
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  padding: 12px 20px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  border-bottom: 1px solid var(--border);
+}
+.nav a {
+  color: var(--text-secondary); text-decoration: none; padding: 9px 16px; border-radius: 8px;
+  transition: all 0.25s; font-size: 13px; border: 1px solid transparent; cursor: pointer;
+}
+.nav a:hover { background: rgba(59,130,246,0.15); color: #60a5fa; transform: translateY(-1px); }
+.nav a.active { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+
+/* Pages */
+.page { display: none; padding: 28px; max-width: 1800px; margin: 0 auto; animation: fadeIn 0.35s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Cards */
+.card {
+  background: linear-gradient(145deg, var(--bg-card), var(--bg-card2));
+  border-radius: 16px; padding: 24px; margin-bottom: 24px;
+  border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.card h2 {
+  color: var(--accent); font-size: 19px; margin-bottom: 18px;
+  border-bottom: 2px solid var(--accent2); padding-bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.card h3 { color: var(--text-secondary); font-size: 14px; margin: 18px 0 12px; display: flex; align-items: center; gap: 8px; }
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 16px 0; }
+.kpi-box {
+  background: linear-gradient(145deg, #334155, var(--bg-secondary));
+  padding: 18px; border-radius: 12px; text-align: center;
+  border: 1px solid var(--border); transition: transform 0.25s;
+}
+.kpi-box:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+.kpi-box.primary { background: linear-gradient(145deg, #3b82f6, #1d4ed8); }
+.kpi-box.success { background: linear-gradient(145deg, #10b981, #059669); }
+.kpi-box.warning { background: linear-gradient(145deg, #f59e0b, #d97706); }
+.kpi-box.danger { background: linear-gradient(145deg, #ef4444, #dc2626); }
+.kpi-box.info { background: linear-gradient(145deg, #06b6d4, #0891b2); }
+.kpi-box.purple { background: linear-gradient(145deg, #8b5cf6, #7c3aed); }
+.kpi-value { font-size: 28px; font-weight: 800; }
+.kpi-label { font-size: 12px; opacity: 0.9; margin-top: 6px; }
+.kpi-delta { font-size: 11px; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.kpi-delta.up { color: #6ee7b7; }
+.kpi-delta.down { color: #fca5a5; }
+
+/* Chart Grid */
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 20px; margin: 16px 0; }
+.chart-container {
+  background: linear-gradient(145deg, var(--bg-card), var(--bg-card2));
+  border-radius: 12px; padding: 16px; min-height: 340px;
+  border: 1px solid var(--border);
+}
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+th {
+  background: linear-gradient(145deg, #334155, var(--bg-secondary));
+  color: var(--text-secondary); padding: 12px 14px; text-align: left;
+  border-bottom: 2px solid var(--accent2); font-weight: 600;
+}
+td { padding: 10px 14px; border-bottom: 1px solid #334155; color: var(--text-primary); }
+body.light td { border-bottom: 1px solid #e2d9ce; }
+tr:hover td { background: var(--bg-hover); }
+tr:last-child td { border-bottom: none; }
+
+/* Badges */
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+.badge-high, .badge-D { background: rgba(239,68,68,0.2); color: #ef4444; }
+.badge-medium, .badge-C { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.badge-low, .badge-A { background: rgba(16,185,129,0.2); color: #10b981; }
+.badge-B { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.badge-進行中, .badge-有效 { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.badge-規劃中, .badge-監控中 { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.badge-已完成 { background: rgba(16,185,129,0.2); color: #10b981; }
+.badge-到期 { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+/* Alerts */
+.alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.alert-critical { background: linear-gradient(90deg, rgba(239,68,68,0.15), transparent); border-left: 4px solid #ef4444; }
+.alert-warning { background: linear-gradient(90deg, rgba(245,158,11,0.15), transparent); border-left: 4px solid #f59e0b; }
+.alert-info { background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-left: 4px solid #3b82f6; }
+
+/* Progress Bars */
+.progress-bar { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+
+/* Simulation Controls */
+.sim-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0; }
+.slider-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.slider-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-weight: 600; }
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent2); }
+.slider-val { font-size: 13px; font-weight: 700; color: var(--accent); min-width: 48px; text-align: right; }
+.sim-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.sim-card { background: var(--bg-card2); border-radius: 10px; padding: 14px; text-align: center; border: 1px solid var(--border); }
+.sim-card .sim-val { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.sim-card .sim-lbl { font-size: 12px; color: var(--text-secondary); }
+
+/* Export mode overrides */
+body.export-mode * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.export-mode .card { background: #1e293b !important; }
+body.export-mode .chart-container { background: #1e293b !important; }
+body.export-mode .kpi-box { background: #334155 !important; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chart-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .nav a { padding: 7px 10px; font-size: 12px; }
+  .header { padding: 14px 20px; }
+  .page { padding: 16px; }
+  .header-right { gap: 6px; }
+  .btn { padding: 7px 12px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <h1><i class="fas fa-chart-line"></i> 採購智能分析平台 V3.0</h1>
+    <div class="subtitle" id="header-subtitle">XYZ 製造股份有限公司 | 電子製造服務 (EMS) | 2025-Q4</div>
+    <div class="last-update"><i class="fas fa-clock"></i> 數據更新時間: <span id="update-time">2025-12-15 14:30</span></div>
+  </div>
+  <div class="header-right">
+    <label for="fileInput" class="btn btn-primary"><i class="fas fa-file-excel"></i> 匯入 Excel</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleExcelUpload(this)">
+    <button class="btn btn-secondary" onclick="downloadTemplate()"><i class="fas fa-download"></i> 下載範例</button>
+    <button class="btn btn-secondary" onclick="exportPNG()"><i class="fas fa-image"></i> 匯出 PNG</button>
+    <button class="btn btn-success" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> 匯出 PDF</button>
+    <button class="btn btn-secondary" onclick="toggleDark()" id="theme-btn"><i class="fas fa-moon"></i></button>
+  </div>
+</div>
+
+<!-- Navigation -->
+<nav class="nav">
+  <a class="active" onclick="showPage('summary')"><i class="fas fa-gauge-high"></i> 決策總覽</a>
+  <a onclick="showPage('spend')"><i class="fas fa-coins"></i> 支出分析</a>
+  <a onclick="showPage('supplier')"><i class="fas fa-handshake"></i> 供應商矩陣</a>
+  <a onclick="showPage('cost')"><i class="fas fa-piggy-bank"></i> 成本節約</a>
+  <a onclick="showPage('risk')"><i class="fas fa-shield-halved"></i> 風險管控</a>
+  <a onclick="showPage('esg')"><i class="fas fa-leaf"></i> ESG 永續</a>
+  <a onclick="showPage('quality')"><i class="fas fa-clipboard-check"></i> 品質 SPC</a>
+  <a onclick="showPage('contract')"><i class="fas fa-file-contract"></i> 合約管理</a>
+  <a onclick="showPage('maturity')"><i class="fas fa-graduation-cap"></i> 採購成熟度</a>
+  <a onclick="showPage('simulation')"><i class="fas fa-flask"></i> 情境模擬</a>
+</nav>
+
+<!-- Pages -->
+<div id="summary" class="page active">
+  <div class="card">
+    <h2><i class="fas fa-gauge-high"></i> 關鍵績效指標 (KPI)</h2>
+    <div class="kpi-grid" id="kpi-grid"></div>
+  </div>
+  <div class="card">
+    <h2><i class="fas fa-triangle-exclamation"></i> 警示與提醒</h2>
+    <div id="alerts-container"></div>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-container"><div id="chart-summary-bar" style="height:300px"></div></div>
+    <div class="chart-container"><div id="chart-summary-trend" style="height:300px"></div></div>
+  </div>
+</div>
+
+<div id="spend" class="page">
+  <div class="card">
+    <h2><i class="fas fa-coins"></i> 採購支出分析</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-spend-category" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-spend-region" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-spend-supplier" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-spend-coverage" style="height:300px"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="supplier" class="page">
+  <div class="card">
+    <h2><i class="fas fa-handshake"></i> 供應商績效矩陣</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-supplier-scatter" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-supplier-performance" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-supplier-risk" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-supplier-rating" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-list"></i> 供應商詳細資料</h3>
+    <div class="table-wrap"><table id="supplier-table">
+      <thead><tr><th>供應商</th><th>類別</th><th>採購金額</th><th>績效</th><th>準時率</th><th>合格率</th><th>風險</th><th>評級</th></tr></thead>
+      <tbody id="supplier-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="cost" class="page">
+  <div class="card">
+    <h2><i class="fas fa-piggy-bank"></i> 成本節約分析</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-cost-type" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-cost-target" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-cost-variance" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-cost-trend" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-table"></i> 價格差異追蹤</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>原物料</th><th>季度</th><th>去年單價</th><th>今年單價</th><th>差異%</th><th>狀態</th></tr></thead>
+      <tbody id="variance-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="risk" class="page">
+  <div class="card">
+    <h2><i class="fas fa-shield-halved"></i> 風險管控</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-risk-heatmap" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-risk-trend" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-list"></i> 風險項目清單</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>類別</th><th>描述</th><th>嚴重性</th><th>可能性</th><th>影響金額</th><th>緩解措施</th><th>狀態</th><th>負責人</th></tr></thead>
+      <tbody id="risk-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="esg" class="page">
+  <div class="card">
+    <h2><i class="fas fa-leaf"></i> ESG 永續評核</h2>
+    <div class="kpi-grid" id="esg-kpi-grid"></div>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-esg-radar" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-esg-carbon" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-esg-supplier" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-esg-goals" style="height:300px"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="quality" class="page">
+  <div class="card">
+    <h2><i class="fas fa-clipboard-check"></i> 品質 SPC 管制</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-quality-cpk" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-quality-defect" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-quality-pareto" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-quality-supplier" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-industry"></i> 供應商品質排名</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>供應商</th><th>不良 PPM</th><th>準時率</th><th>回應天數</th><th>整體評級</th></tr></thead>
+      <tbody id="quality-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="contract" class="page">
+  <div class="card">
+    <h2><i class="fas fa-file-contract"></i> 合約生命週期管理</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-contract-value" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-contract-timeline" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-list"></i> 合約清單</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>合約編號</th><th>供應商</th><th>類型</th><th>金額</th><th>起始日</th><th>到期日</th><th>狀態</th></tr></thead>
+      <tbody id="contract-tbody"></tbody>
+    </table></div>
+    <h3><i class="fas fa-exclamation-circle"></i> 即將到期合約</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>合約</th><th>供應商</th><th>剩餘天數</th><th>金額</th><th>建議動作</th></tr></thead>
+      <tbody id="expiring-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="maturity" class="page">
+  <div class="card">
+    <h2><i class="fas fa-graduation-cap"></i> 採購成熟度評估</h2>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-maturity-radar" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-maturity-current" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-maturity-roadmap" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-maturity-benchmark" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-list"></i> 各維度評分</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>維度</th><th>分數</th><th>進度</th><th>說明</th></tr></thead>
+      <tbody id="maturity-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div id="simulation" class="page">
+  <div class="card">
+    <h2><i class="fas fa-flask"></i> 情境模擬站</h2>
+    <div class="sim-controls">
+      <div class="slider-group">
+        <label><i class="fas fa-box"></i> 原物料漲幅 (%)</label>
+        <div class="slider-row">
+          <input type="range" id="sim-material" min="-20" max="40" value="5" oninput="updateSimulation()">
+          <span class="slider-val" id="sim-material-val">5%</span>
+        </div>
+      </div>
+      <div class="slider-group">
+        <label><i class="fas fa-dollar-sign"></i> 匯率變動 (%)</label>
+        <div class="slider-row">
+          <input type="range" id="sim-fx" min="-15" max="15" value="0" oninput="updateSimulation()">
+          <span class="slider-val" id="sim-fx-val">0%</span>
+        </div>
+      </div>
+      <div class="slider-group">
+        <label><i class="fas fa-chart-bar"></i> 需求變化 (%)</label>
+        <div class="slider-row">
+          <input type="range" id="sim-demand" min="-30" max="30" value="0" oninput="updateSimulation()">
+          <span class="slider-val" id="sim-demand-val">0%</span>
+        </div>
+      </div>
+      <div class="slider-group">
+        <label><i class="fas fa-handshake"></i> 節約效率變化 (%)</label>
+        <div class="slider-row">
+          <input type="range" id="sim-saving" min="-30" max="30" value="0" oninput="updateSimulation()">
+          <span class="slider-val" id="sim-saving-val">0%</span>
+        </div>
+      </div>
+    </div>
+    <div class="sim-result" id="sim-result-grid"></div>
+    <div class="chart-grid">
+      <div class="chart-container"><div id="chart-sim-heatmap" style="height:300px"></div></div>
+      <div class="chart-container"><div id="chart-sim-sensitivity" style="height:300px"></div></div>
+    </div>
+    <h3><i class="fas fa-table"></i> 情境分析矩陣</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>情境</th><th>描述</th><th>影響金額</th><th>緩解成本</th><th>緩解效果</th></tr></thead>
+      <tbody id="scenario-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script>
+// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+let D = {
+  company: { name: 'XYZ 製造股份有限公司', code: 'XYZMFG', industry: '電子製造服務 (EMS)', reportDate: '2025-Q4', currency: 'USD' },
+  pages: {
+    summary: {
+      kpis: [
+        { KPI: '總採購金額', 數值: 12500000, 單位: 'USD', 趨勢: 'up', 變化: 8.5 },
+        { KPI: '成本節約', 數值: 1850000, 單位: 'USD', 趨勢: 'up', 變化: 12.3 },
+        { KPI: '供應商家數', 數值: 156, 單位: '家', 趨勢: 'down', 變化: -3 },
+        { KPI: '準時交貨率', 數值: 94.2, 單位: '%', 趨勢: 'up', 變化: 2.1 },
+        { KPI: '品質合格率', 數值: 98.7, 單位: '%', 趨勢: 'up', 變化: 0.5 },
+        { KPI: '風險敞口', 數值: 1250000, 單位: 'USD', 趨勢: 'down', 變化: -15.2 }
+      ],
+      alerts: [
+        { 類型: 'critical', 訊息: '供應商 A 風險評級升至 HIGH — 立即檢視', 動作: '立即檢視' },
+        { 類型: 'warning', 訊息: '3 項物料庫存低於安全水位 — 請儘速補貨', 動作: '檢視庫存' },
+        { 類型: 'info', 訊息: 'Q4 成本節約目標達成率 92% — 預計可超額完成', 動作: '查看詳情' }
+      ]
+    },
+    spend: {
+      byCategory: [
+        { 類別: '原物料', 金額: 6800000, 佔比: 54.4 },
+        { 類別: '包裝材料', 金額: 2100000, 佔比: 16.8 },
+        { 類別: '設備零件', 金額: 1850000, 佔比: 14.8 },
+        { 類別: '物流服務', 金額: 1100000, 佔比: 8.8 },
+        { 類別: '其他', 金額: 650000, 佔比: 5.2 }
+      ],
+      byRegion: [
+        { 區域: '亞太', 金額: 7500000, 佔比: 60 },
+        { 區域: '美洲', 金額: 2500000, 佔比: 20 },
+        { 區域: '歐洲', 金額: 2500000, 佔比: 20 }
+      ],
+      bySupplier: [
+        { 供應商: '供應商A', 金額: 3200000, 佔比: 25.6 },
+        { 供應商: '供應商B', 金額: 1800000, 佔比: 14.4 },
+        { 供應商: '供應商C', 金額: 1500000, 佔比: 12.0 },
+        { 供應商: '供應商D', 金額: 1200000, 佔比: 9.6 },
+        { 供應商: '其他', 金額: 4800000, 佔比: 38.4 }
+      ],
+      contractCoverage: [
+        { 類別: '原物料', 覆蓋率: 95 },
+        { 類別: '包裝材料', 覆蓋率: 88 },
+        { 類別: '設備零件', 覆蓋率: 72 },
+        { 類別: '物流服務', 覆蓋率: 65 },
+        { 類別: '其他', 覆蓋率: 35 }
+      ]
+    },
+    supplier: {
+      list: [
+        { 名稱:'供應商A', 類別:'原物料', 金額:3200000, 績效:92, 風險:15, 準時率:96.5, 合格率:99.2, 評級:'A' },
+        { 名稱:'供應商B', 類別:'包裝',   金額:1800000, 績效:88, 風險:25, 準時率:94.2, 合格率:98.5, 評級:'B' },
+        { 名稱:'供應商C', 類別:'零件',   金額:1500000, 績效:85, 風險:45, 準時率:89.1, 合格率:97.8, 評級:'C' },
+        { 名稱:'供應商D', 類別:'原物料', 金額:1200000, 績效:78, 風險:60, 準時率:82.5, 合格率:96.2, 評級:'D' },
+        { 名稱:'供應商E', 類別:'設備',   金額:950000,  績效:95, 風險:10, 準時率:98.2, 合格率:99.5, 評級:'A' },
+        { 名稱:'供應商F', 類別:'服務',   金額:800000,  績效:72, 風險:75, 準時率:75.8, 合格率:94.5, 評級:'D' },
+        { 名稱:'供應商G', 類別:'包裝',   金額:650000,  績效:82, 風險:35, 準時率:91.2, 合格率:98.1, 評級:'B' },
+        { 名稱:'供應商H', 類別:'零件',   金額:580000,  績效:90, 風險:20, 準時率:95.5, 合格率:99.0, 評級:'A' }
+      ]
+    },
+    cost: {
+      savingsByType: [
+        { 類型:'價格談判', 金額:820000, 佔比:44.3 },
+        { 類型:'規格優化', 金額:450000, 佔比:24.3 },
+        { 類型:'數量折扣', 金額:320000, 佔比:17.3 },
+        { 類型:'供應商整合', 金額:180000, 佔比:9.7 },
+        { 類型:'替代材料', 金額:80000, 佔比:4.3 }
+      ],
+      targetVsActual: [
+        { 月份:'Jan', 目標:150000, 實際:145000 },
+        { 月份:'Feb', 目標:150000, 實際:162000 },
+        { 月份:'Mar', 目標:160000, 實際:158000 },
+        { 月份:'Apr', 目標:160000, 實際:175000 },
+        { 月份:'May', 目標:165000, 實際:168000 },
+        { 月份:'Jun', 目標:165000, 實際:182000 }
+      ],
+      priceVariance: [
+        { 原物料:'鋁合金板材', 季度:'Q1', 去年單價:125, 今年單價:118, 差異:-5.6 },
+        { 原物料:'鋁合金板材', 季度:'Q2', 去年單價:125, 今年單價:122, 差異:-2.4 },
+        { 原物料:'鋁合金板材', 季度:'Q3', 去年單價:125, 今年單價:128, 差異:2.4 },
+        { 原物料:'鋁合金板材', 季度:'Q4', 去年單價:125, 今年單價:132, 差異:5.6 },
+        { 原物料:'塑膠粒料', 季度:'Q1', 去年單價:85, 今年單價:82, 差異:-3.5 },
+        { 原物料:'塑膠粒料', 季度:'Q2', 去年單價:85, 今年單價:88, 差異:3.5 },
+        { 原物料:'塑膠粒料', 季度:'Q3', 去年單價:85, 今年單價:86, 差異:1.2 },
+        { 原物料:'塑膠粒料', 季度:'Q4', 去年單價:85, 今年單價:84, 差異:-1.2 }
+      ]
+    },
+    risk: {
+      items: [
+        { ID:'R001', 類別:'供應商', 描述:'單一供應商依賴過高', 嚴重性:'HIGH', 可能性:'LIKELY', 影響金額:250000, 緩解措施:'開發替代供應商', 狀態:'進行中', 負責人:'王經理' },
+        { ID:'R002', 類別:'地緣政治', 描述:'亞洲供應鏈風險', 嚴重性:'MEDIUM', 可能性:'POSSIBLE', 影響金額:180000, 緩解措施:'多元化供應商', 狀態:'規劃中', 負責人:'李經理' },
+        { ID:'R003', 類別:'品質', 描述:'關鍵物料合格率下降', 嚴重性:'HIGH', 可能性:'OCCASIONAL', 影響金額:320000, 緩解措施:'加強進料檢驗', 狀態:'已完成', 負責人:'陳經理' },
+        { ID:'R004', 類別:'財務', 描述:'匯率波動風險', 嚴重性:'MEDIUM', 可能性:'LIKELY', 影響金額:95000, 緩解措施:'避險合約', 狀態:'監控中', 負責人:'張經理' },
+        { ID:'R005', 類別:'庫存', 描述:'安全庫存不足', 嚴重性:'LOW', 可能性:'RARE', 影響金額:45000, 緩解措施:'調整安全庫存', 狀態:'已完成', 負責人:'劉經理' }
+      ]
+    },
+    esg: {
+      scores: [
+        { 維度:'環境(E)', 分數:72, 目標:80, 趨勢:'up' },
+        { 維度:'社會(S)', 分數:68, 目標:75, 趨勢:'up' },
+        { 維度:'治理(G)', 分數:78, 目標:80, 趨勢:'stable' }
+      ],
+      supplierESG: [
+        { 供應商:'供應商A', 環境:85, 社會:78, 治理:82, 總分:82 },
+        { 供應商:'供應商B', 環境:72, 社會:75, 治理:70, 總分:72 },
+        { 供應商:'供應商C', 環境:65, 社會:68, 治理:72, 總分:68 },
+        { 供應商:'供應商D', 環境:55, 社會:62, 治理:65, 總分:61 }
+      ],
+      carbonFootprint: [
+        { 年份:2022, 排放量:12500, 目標:13000 },
+        { 年份:2023, 排放量:11800, 目標:12000 },
+        { 年份:2024, 排放量:10500, 目標:11000 },
+        { 年份:2025, 排放量:9200,  目標:10000 }
+      ]
+    },
+    quality: {
+      spcData: [
+        { 週次:'W1', CPK:1.45, 不良率:0.32, 目標:1.33 },
+        { 週次:'W2', CPK:1.52, 不良率:0.28, 目標:1.33 },
+        { 週次:'W3', CPK:1.38, 不良率:0.38, 目標:1.33 },
+        { 週次:'W4', CPK:1.55, 不良率:0.25, 目標:1.33 },
+        { 週次:'W5', CPK:1.48, 不良率:0.30, 目標:1.33 },
+        { 週次:'W6', CPK:1.62, 不良率:0.22, 目標:1.33 }
+      ],
+      defectTypes: [
+        { 類型:'尺寸偏差', 次數:45, 佔比:32, 成本:12500 },
+        { 類型:'外觀瑕疵', 次數:38, 佔比:27, 成本:8200 },
+        { 類型:'功能異常', 次數:28, 佔比:20, 成本:28000 },
+        { 類型:'包裝損壞', 次數:18, 佔比:13, 成本:3500 },
+        { 類型:'標籤錯誤', 次數:11, 佔比:8,  成本:1200 }
+      ],
+      supplierQuality: [
+        { 供應商:'A供應商', 不良PPM:850,  準時率:96.5, 回應天數:2.5 },
+        { 供應商:'B供應商', 不良PPM:1200, 準時率:94.2, 回應天數:4.2 },
+        { 供應商:'C供應商', 不良PPM:2100, 準時率:89.1, 回應天數:8.5 },
+        { 供應商:'D供應商', 不良PPM:3500, 準時率:82.5, 回應天數:12.0 }
+      ]
+    },
+    contract: {
+      list: [
+        { 合約編號:'C001', 供應商:'供應商A', 類型:'年度框架', 金額:2500000, 起始日:'2025-01-01', 到期日:'2025-12-31', 狀態:'有效' },
+        { 合約編號:'C002', 供應商:'供應商B', 類型:'2年期',    金額:1800000, 起始日:'2024-07-01', 到期日:'2026-06-30', 狀態:'有效' },
+        { 合約編號:'C003', 供應商:'供應商C', 類型:'單次採購', 金額:850000,  起始日:'2025-03-01', 到期日:'2025-08-31', 狀態:'到期' },
+        { 合約編號:'C004', 供應商:'供應商D', 類型:'年度框架', 金額:1200000, 起始日:'2025-04-01', 到期日:'2026-03-31', 狀態:'有效' },
+        { 合約編號:'C005', 供應商:'供應商E', 類型:'3年期',    金額:3500000, 起始日:'2024-01-01', 到期日:'2026-12-31', 狀態:'有效' }
+      ],
+      expiringSoon: [
+        { 合約:'C003', 供應商:'供應商C', 剩餘天數:15, 金額:850000, 動作:'立即續約' },
+        { 合約:'C006', 供應商:'供應商F', 剩餘天數:45, 金額:620000, 動作:'評估談判' },
+        { 合約:'C007', 供應商:'供應商G', 剩餘天數:60, 金額:480000, 動作:'準備招標' }
+      ]
+    },
+    maturity: {
+      dimensions: [
+        { 維度:'策略採購', 分數:3.2, 滿分:5, 說明:'建立採購策略框架' },
+        { 維度:'供應商管理', 分數:3.8, 滿分:5, 說明:'完整供應商評估制度' },
+        { 維度:'流程優化', 分數:2.9, 滿分:5, 說明:'標準化流程進行中' },
+        { 維度:'數據分析', 分數:2.5, 滿分:5, 說明:'基礎數據收集階段' },
+        { 維度:'風險管理', 分數:3.5, 滿分:5, 說明:'風險識別與應對' },
+        { 維度:'永續採購', 分數:2.8, 滿分:5, 說明:'ESG整合規劃中' }
+      ],
+      roadmap: [
+        { 年份:2025, 重點:'流程標準化', 目標分數:3.2 },
+        { 年份:2026, 重點:'數據驅動',   目標分數:3.8 },
+        { 年份:2027, 重點:'智慧採購',   目標分數:4.5 }
+      ],
+      benchmark: [
+        { 等級:'初始級', 範圍:'1.0-2.0', 佔比:15 },
+        { 等級:'發展級', 範圍:'2.0-3.0', 佔比:35 },
+        { 等級:'定義級', 範圍:'3.0-4.0', 佔比:32 },
+        { 等級:'優化級', 範圍:'4.0-5.0', 佔比:18 }
+      ]
+    },
+    simulation: {
+      scenarios: [
+        { 情境:'供應商斷鏈', 描述:'主要供應商因天災停止供貨30天', 影響金額:450000, 緩解成本:125000, 緩解效果:85 },
+        { 情境:'原物料漲價20%', 描述:'鋁合金市場價格突然飆漲', 影響金額:1360000, 緩解成本:180000, 緩解效果:90 },
+        { 情境:'匯率波動10%', 描述:'美元兌亞洲貨幣大幅波動', 影響金額:320000, 緩解成本:45000, 緩解效果:70 }
+      ]
+    }
+  }
+};
+
+// ─── PLOTLY THEME ─────────────────────────────────────────────────────────────
+const L = {
+  paper_bgcolor: 'transparent',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#94a3b8', family: 'Segoe UI, Microsoft JhengHei' },
+  margin: { t: 48, l: 48, r: 24, b: 48 },
+  colorway: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16']
+};
+function layout(extra) { return Object.assign({}, L, extra); }
+const CFG = { responsive: true, displayModeBar: false };
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+const renderedPages = new Set();
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const idx = ['summary','spend','supplier','cost','risk','esg','quality','contract','maturity','simulation'].indexOf(id);
+  document.querySelectorAll('.nav a')[idx].classList.add('active');
+  if (!renderedPages.has(id)) { renderedPages.add(id); setTimeout(() => renderPage(id), 60); }
+}
+
+function renderPage(id) {
+  const p = D.pages;
+  if (id === 'summary')    renderSummary(p.summary);
+  if (id === 'spend')      renderSpend(p.spend);
+  if (id === 'supplier')   renderSupplier(p.supplier);
+  if (id === 'cost')       renderCost(p.cost);
+  if (id === 'risk')       renderRisk(p.risk);
+  if (id === 'esg')        renderESG(p.esg);
+  if (id === 'quality')    renderQuality(p.quality);
+  if (id === 'contract')   renderContract(p.contract);
+  if (id === 'maturity')   renderMaturity(p.maturity);
+  if (id === 'simulation') renderSimulation(p.simulation);
+}
+
+function renderAll() {
+  renderedPages.clear();
+  updateHeader();
+  const active = document.querySelector('.page.active');
+  if (active) renderPage(active.id);
+}
+
+// ─── DOM HELPERS ──────────────────────────────────────────────────────────────
+function fmt(n, unit) {
+  if (unit === 'USD') return '$' + (n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n/1000).toFixed(0)+'K');
+  if (unit === '%') return n.toFixed(1) + '%';
+  return n + (unit ? ' '+unit : '');
+}
+function badge(cls, text) { return `<span class="badge badge-${cls}">${text}</span>`; }
+function riskBadge(s) { return badge(s === 'HIGH' ? 'high' : s === 'MEDIUM' ? 'medium' : 'low', s); }
+
+function updateHeader() {
+  const c = D.company;
+  document.getElementById('header-subtitle').textContent = `${c.name} | ${c.industry} | ${c.reportDate}`;
+  document.getElementById('update-time').textContent = new Date().toLocaleString('zh-TW').replace(/\//g,'-');
+}
+
+// ─── P1: 決策總覽 ─────────────────────────────────────────────────────────────
+function renderSummary(p) {
+  // KPI grid
+  const kpiColors = ['primary','success','info','success','success','warning'];
+  const kpiIcons  = ['fa-dollar-sign','fa-piggy-bank','fa-users','fa-truck','fa-check-circle','fa-shield-halved'];
+  document.getElementById('kpi-grid').innerHTML = p.kpis.map((k,i) => {
+    const dir = k.趨勢 === 'up' ? 'up' : 'down';
+    const ico = k.趨勢 === 'up' ? 'fa-arrow-up' : 'fa-arrow-down';
+    return `<div class="kpi-box ${kpiColors[i]}">
+      <div class="kpi-value">${fmt(k.數值, k.單位)}</div>
+      <div class="kpi-label"><i class="fas ${kpiIcons[i]}"></i> ${k.KPI}</div>
+      <div class="kpi-delta ${dir}"><i class="fas ${ico}"></i> ${k.變化 > 0 ? '+' : ''}${k.變化}% vs 去年</div>
+    </div>`;
+  }).join('');
+
+  // Alerts
+  document.getElementById('alerts-container').innerHTML = p.alerts.map(a =>
+    `<div class="alert alert-${a.類型}">
+      <span><i class="fas ${a.類型==='critical'?'fa-exclamation-circle':a.類型==='warning'?'fa-exclamation-triangle':'fa-info-circle'}"></i> ${a.訊息}</span>
+      <span>${badge(a.類型==='critical'?'high':a.類型==='warning'?'medium':'low', a.動作)}</span>
+    </div>`
+  ).join('');
+
+  // Charts
+  const cats = D.pages.spend.byCategory;
+  Plotly.newPlot('chart-summary-bar', [{
+    x: cats.map(c => c.類別), y: cats.map(c => c.佔比),
+    type: 'bar', marker: { color: COLORS },
+    text: cats.map(c => c.佔比 + '%'), textposition: 'outside'
+  }], layout({ title: { text: '支出類別分布 (%)', font: { color: '#94a3b8' } } }), CFG);
+
+  const tv = D.pages.cost.targetVsActual;
+  Plotly.newPlot('chart-summary-trend', [
+    { x: tv.map(r=>r.月份), y: tv.map(r=>r.目標/1000), type:'scatter', mode:'lines', name:'目標', line:{ color:'#ef4444', dash:'dash', width:2 } },
+    { x: tv.map(r=>r.月份), y: tv.map(r=>r.實際/1000), type:'scatter', mode:'lines+markers', name:'實際', line:{ color:'#10b981', width:3 }, fill:'tonexty', fillcolor:'rgba(16,185,129,0.1)' }
+  ], layout({ title: { text: '成本節約目標 vs 實際 (千元)', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+}
+
+// ─── P2: 支出分析 ─────────────────────────────────────────────────────────────
+function renderSpend(p) {
+  Plotly.newPlot('chart-spend-category', [{
+    labels: p.byCategory.map(r=>r.類別), values: p.byCategory.map(r=>r.佔比),
+    type:'pie', hole:0.42, marker:{ colors: COLORS }
+  }], layout({ title:{ text:'支出類別分布', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-spend-region', [{
+    labels: p.byRegion.map(r=>r.區域), values: p.byRegion.map(r=>r.佔比),
+    type:'pie', hole:0.42, marker:{ colors:['#3b82f6','#10b981','#f59e0b'] }
+  }], layout({ title:{ text:'區域支出分布', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-spend-supplier', [{
+    x: p.bySupplier.map(r=>r.金額/1000), y: p.bySupplier.map(r=>r.供應商),
+    type:'bar', orientation:'h', marker:{ color: COLORS }
+  }], layout({ title:{ text:'供應商採購金額 (千元)', font:{ color:'#94a3b8' } }, margin:{ t:48,l:90,r:24,b:48 } }), CFG);
+
+  Plotly.newPlot('chart-spend-coverage', [{
+    x: p.contractCoverage.map(r=>r.類別), y: p.contractCoverage.map(r=>r.覆蓋率),
+    type:'bar', marker:{ color: p.contractCoverage.map(r => r.覆蓋率 >= 80 ? '#10b981' : r.覆蓋率 >= 60 ? '#f59e0b' : '#ef4444') },
+    text: p.contractCoverage.map(r=>r.覆蓋率+'%'), textposition:'outside'
+  }], layout({ title:{ text:'合約覆蓋率 (%)', font:{ color:'#94a3b8' } }, yaxis:{ range:[0,110] } }), CFG);
+}
+
+// ─── P3: 供應商矩陣 ───────────────────────────────────────────────────────────
+function renderSupplier(p) {
+  const ratingColor = r => ({ A:'#10b981', B:'#3b82f6', C:'#f59e0b', D:'#ef4444' })[r] || '#94a3b8';
+
+  Plotly.newPlot('chart-supplier-scatter', [{
+    x: p.list.map(s=>s.績效), y: p.list.map(s=>s.風險),
+    mode:'markers+text', type:'scatter',
+    marker:{ size: p.list.map(s=>Math.sqrt(s.金額/10000)), color: p.list.map(s=>ratingColor(s.評級)), opacity:0.85 },
+    text: p.list.map(s=>s.名稱), textposition:'top center'
+  }], layout({
+    title:{ text:'績效 vs 風險 (氣泡大小=採購額)', font:{ color:'#94a3b8' } },
+    xaxis:{ title:'績效分數', color:'#94a3b8' },
+    yaxis:{ title:'風險分數', color:'#94a3b8' }
+  }), CFG);
+
+  const top4 = p.list.slice(0,4);
+  Plotly.newPlot('chart-supplier-performance', [
+    { x: top4.map(s=>s.名稱), y: top4.map(s=>s.準時率), type:'bar', name:'準時率', marker:{ color:'#3b82f6' } },
+    { x: top4.map(s=>s.名稱), y: top4.map(s=>s.合格率), type:'bar', name:'合格率', marker:{ color:'#10b981' } }
+  ], layout({ title:{ text:'供應商準時率 vs 合格率', font:{ color:'#94a3b8' } }, barmode:'group', legend:{ font:{ color:'#94a3b8' } }, yaxis:{ range:[80,101] } }), CFG);
+
+  const riskDist = [
+    { level:'低風險', count: p.list.filter(s=>s.風險<30).length },
+    { level:'中風險', count: p.list.filter(s=>s.風險>=30 && s.風險<60).length },
+    { level:'高風險', count: p.list.filter(s=>s.風險>=60).length }
+  ];
+  Plotly.newPlot('chart-supplier-risk', [{
+    labels: riskDist.map(r=>r.level), values: riskDist.map(r=>r.count),
+    type:'pie', hole:0.42, marker:{ colors:['#10b981','#f59e0b','#ef4444'] }
+  }], layout({ title:{ text:'供應商風險分布', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  const ratingCounts = ['A','B','C','D'].map(r => p.list.filter(s=>s.評級===r).length);
+  Plotly.newPlot('chart-supplier-rating', [{
+    x: ['A','B','C','D'], y: ratingCounts, type:'bar',
+    marker:{ color:['#10b981','#3b82f6','#f59e0b','#ef4444'] },
+    text: ratingCounts, textposition:'outside'
+  }], layout({ title:{ text:'供應商評級分布', font:{ color:'#94a3b8' } } }), CFG);
+
+  // Table
+  document.getElementById('supplier-tbody').innerHTML = p.list.map(s =>
+    `<tr><td>${s.名稱}</td><td>${s.類別}</td><td>${fmt(s.金額,'USD')}</td>
+     <td>${s.績效}</td><td>${s.準時率}%</td><td>${s.合格率}%</td>
+     <td>${badge(s.風險<30?'low':s.風險<60?'medium':'high', s.風險<30?'低':s.風險<60?'中':'高')}</td>
+     <td>${badge(s.評級, s.評級)}</td></tr>`
+  ).join('');
+}
+
+// ─── P4: 成本節約 ─────────────────────────────────────────────────────────────
+function renderCost(p) {
+  Plotly.newPlot('chart-cost-type', [{
+    labels: p.savingsByType.map(r=>r.類型), values: p.savingsByType.map(r=>r.佔比),
+    type:'pie', hole:0.42, marker:{ colors: COLORS }
+  }], layout({ title:{ text:'成本節約類型分布', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-cost-target', [
+    { x: p.targetVsActual.map(r=>r.月份), y: p.targetVsActual.map(r=>r.目標/1000), type:'scatter', mode:'lines', name:'目標', line:{ color:'#ef4444', dash:'dash', width:2 } },
+    { x: p.targetVsActual.map(r=>r.月份), y: p.targetVsActual.map(r=>r.實際/1000), type:'scatter', mode:'lines+markers', name:'實際', line:{ color:'#10b981', width:3 }, fill:'tonexty', fillcolor:'rgba(16,185,129,0.12)' }
+  ], layout({ title:{ text:'成本節約目標 vs 實際 (千元)', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  const alum = p.priceVariance.filter(r => r.原物料 === '鋁合金板材');
+  const plas = p.priceVariance.filter(r => r.原物料 === '塑膠粒料');
+  Plotly.newPlot('chart-cost-variance', [
+    { x: alum.map(r=>r.季度), y: alum.map(r=>r.差異), type:'bar', name:'鋁合金板材', marker:{ color: alum.map(r=>r.差異<=0?'#10b981':'#ef4444') } },
+    { x: plas.map(r=>r.季度), y: plas.map(r=>r.差異), type:'bar', name:'塑膠粒料',   marker:{ color: plas.map(r=>r.差異<=0?'#06b6d4':'#f59e0b') } }
+  ], layout({ title:{ text:'價格差異 (%)', font:{ color:'#94a3b8' } }, barmode:'group', legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-cost-trend', [{
+    x: ['2022','2023','2024','2025'], y: [1.2,1.45,1.68,1.85],
+    type:'scatter', mode:'lines+markers', line:{ color:'#3b82f6', width:3 },
+    fill:'tozeroy', fillcolor:'rgba(59,130,246,0.12)'
+  }], layout({ title:{ text:'年度成本節約趨勢 (百萬元)', font:{ color:'#94a3b8' } } }), CFG);
+
+  // Variance table
+  document.getElementById('variance-tbody').innerHTML = p.priceVariance.map(r => {
+    const up = r.差異 > 0;
+    return `<tr><td>${r.原物料}</td><td>${r.季度}</td><td>$${r.去年單價}</td><td>$${r.今年單價}</td>
+     <td style="color:${up?'#ef4444':'#10b981'}">${up?'+':''}${r.差異}%</td>
+     <td>${badge(up?'high':'low', up?'上漲':'節省')}</td></tr>`;
+  }).join('');
+}
+
+// ─── P5: 風險管控 ─────────────────────────────────────────────────────────────
+function renderRisk(p) {
+  const likelihoodMap = { RARE:0, OCCASIONAL:1, POSSIBLE:2, LIKELY:3 };
+  const severityMap   = { LOW:0, MEDIUM:1, HIGH:2 };
+  const z = [[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  p.items.forEach(r => {
+    const si = severityMap[r.嚴重性] ?? 1;
+    const li = likelihoodMap[r.可能性] ?? 1;
+    if (z[si] && z[si][li] !== undefined) z[si][li]++;
+  });
+
+  Plotly.newPlot('chart-risk-heatmap', [{
+    x: ['RARE','OCCASIONAL','POSSIBLE','LIKELY'],
+    y: ['LOW','MEDIUM','HIGH'],
+    z, type:'heatmap',
+    colorscale: [[0,'#10b981'],[0.5,'#f59e0b'],[1,'#ef4444']],
+    showscale: true
+  }], layout({ title:{ text:'風險熱力圖', font:{ color:'#94a3b8' } }, xaxis:{ color:'#94a3b8' }, yaxis:{ color:'#94a3b8' } }), CFG);
+
+  Plotly.newPlot('chart-risk-trend', [{
+    x: ['Q1','Q2','Q3','Q4'], y: [8, 6, 5, p.items.length],
+    type:'scatter', mode:'lines+markers+text',
+    line:{ color:'#ef4444', width:3 },
+    text: [8,6,5,p.items.length], textposition:'top center'
+  }], layout({ title:{ text:'風險項目數趨勢', font:{ color:'#94a3b8' } } }), CFG);
+
+  // Table
+  document.getElementById('risk-tbody').innerHTML = p.items.map(r =>
+    `<tr><td>${r.ID}</td><td>${r.類別}</td><td>${r.描述}</td>
+     <td>${riskBadge(r.嚴重性)}</td><td>${r.可能性}</td><td>$${(r.影響金額/1000).toFixed(0)}K</td>
+     <td>${r.緩解措施}</td><td>${badge(r.狀態, r.狀態)}</td><td>${r.負責人}</td></tr>`
+  ).join('');
+}
+
+// ─── P6: ESG ──────────────────────────────────────────────────────────────────
+function renderESG(p) {
+  const esgColors = ['success','warning','info'];
+  document.getElementById('esg-kpi-grid').innerHTML = p.scores.map((s,i) =>
+    `<div class="kpi-box ${esgColors[i]}">
+      <div class="kpi-value">${s.分數}</div>
+      <div class="kpi-label">${s.維度} 評分 / 目標 ${s.目標}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${s.分數}%;background:currentColor"></div></div>
+    </div>`
+  ).join('');
+
+  Plotly.newPlot('chart-esg-radar', [{
+    r: [...p.scores.map(s=>s.分數), p.scores[0].分數],
+    theta: [...p.scores.map(s=>s.維度), p.scores[0].維度],
+    type:'scatterpolar', fill:'toself',
+    line:{ color:'#10b981' }, fillcolor:'rgba(16,185,129,0.2)'
+  }], layout({
+    title:{ text:'ESG 雷達圖', font:{ color:'#94a3b8' } },
+    polar:{ radialaxis:{ visible:true, range:[0,100], color:'#64748b' }, angularaxis:{ color:'#94a3b8' } }
+  }), CFG);
+
+  Plotly.newPlot('chart-esg-carbon', [
+    { x: p.carbonFootprint.map(r=>String(r.年份)), y: p.carbonFootprint.map(r=>r.目標), type:'scatter', mode:'lines', name:'目標', line:{ color:'#ef4444', dash:'dash' } },
+    { x: p.carbonFootprint.map(r=>String(r.年份)), y: p.carbonFootprint.map(r=>r.排放量), type:'bar', name:'實際排放', marker:{ color:'#10b981' } }
+  ], layout({ title:{ text:'碳排放趨勢 (噸 CO2e)', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } }, barmode:'overlay' }), CFG);
+
+  Plotly.newPlot('chart-esg-supplier', [
+    { x: p.supplierESG.map(r=>r.供應商), y: p.supplierESG.map(r=>r.環境), type:'bar', name:'環境', marker:{ color:'#10b981' } },
+    { x: p.supplierESG.map(r=>r.供應商), y: p.supplierESG.map(r=>r.社會), type:'bar', name:'社會',  marker:{ color:'#3b82f6' } },
+    { x: p.supplierESG.map(r=>r.供應商), y: p.supplierESG.map(r=>r.治理), type:'bar', name:'治理',  marker:{ color:'#8b5cf6' } }
+  ], layout({ title:{ text:'供應商 ESG 評分', font:{ color:'#94a3b8' } }, barmode:'group', legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-esg-goals', [
+    { x: p.scores.map(s=>s.維度), y: p.scores.map(s=>s.分數), type:'bar', name:'當前', marker:{ color:'#3b82f6' } },
+    { x: p.scores.map(s=>s.維度), y: p.scores.map(s=>s.目標), type:'bar', name:'目標', marker:{ color:'rgba(59,130,246,0.35)' } }
+  ], layout({ title:{ text:'ESG 當前 vs 目標', font:{ color:'#94a3b8' } }, barmode:'group', legend:{ font:{ color:'#94a3b8' } } }), CFG);
+}
+
+// ─── P7: 品質 SPC ─────────────────────────────────────────────────────────────
+function renderQuality(p) {
+  Plotly.newPlot('chart-quality-cpk', [
+    { x: p.spcData.map(r=>r.週次), y: p.spcData.map(r=>r.目標), type:'scatter', mode:'lines', name:'目標 CPK=1.33', line:{ color:'#ef4444', dash:'dash' } },
+    { x: p.spcData.map(r=>r.週次), y: p.spcData.map(r=>r.CPK), type:'scatter', mode:'lines+markers', name:'CPK', line:{ color:'#3b82f6', width:3 }, fill:'tozeroy', fillcolor:'rgba(59,130,246,0.1)' }
+  ], layout({ title:{ text:'CPK 製程能力趨勢', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  Plotly.newPlot('chart-quality-defect', [{
+    x: p.defectTypes.map(r=>r.類型), y: p.defectTypes.map(r=>r.次數),
+    type:'bar', marker:{ color: COLORS },
+    text: p.defectTypes.map(r=>r.次數), textposition:'outside'
+  }], layout({ title:{ text:'品質異常分布', font:{ color:'#94a3b8' } } }), CFG);
+
+  // Pareto 圖（累積百分比）
+  const total = p.defectTypes.reduce((s,r)=>s+r.次數,0);
+  let cum = 0;
+  const cumPct = p.defectTypes.map(r => { cum += r.次數; return Math.round(cum/total*100); });
+  Plotly.newPlot('chart-quality-pareto', [
+    { x: p.defectTypes.map(r=>r.類型), y: p.defectTypes.map(r=>r.次數), type:'bar', name:'次數', marker:{ color:'#ef4444' } },
+    { x: p.defectTypes.map(r=>r.類型), y: cumPct, type:'scatter', mode:'lines+markers', name:'累積%', yaxis:'y2', line:{ color:'#f59e0b', width:2 } }
+  ], layout({
+    title:{ text:'柏拉圖分析', font:{ color:'#94a3b8' } },
+    yaxis2:{ overlaying:'y', side:'right', range:[0,105], color:'#94a3b8', ticksuffix:'%' },
+    legend:{ font:{ color:'#94a3b8' } }
+  }), CFG);
+
+  Plotly.newPlot('chart-quality-supplier', [{
+    x: p.supplierQuality.map(r=>r.供應商), y: p.supplierQuality.map(r=>r.不良PPM),
+    type:'bar', marker:{ color: p.supplierQuality.map(r => r.不良PPM > 2000 ? '#ef4444' : r.不良PPM > 1000 ? '#f59e0b' : '#10b981') },
+    text: p.supplierQuality.map(r=>r.不良PPM), textposition:'outside'
+  }], layout({ title:{ text:'供應商不良 PPM', font:{ color:'#94a3b8' } } }), CFG);
+
+  document.getElementById('quality-tbody').innerHTML = p.supplierQuality.map(r => {
+    const grade = r.不良PPM < 1000 ? 'A' : r.不良PPM < 2000 ? 'B' : r.不良PPM < 3000 ? 'C' : 'D';
+    return `<tr><td>${r.供應商}</td><td>${r.不良PPM.toLocaleString()}</td><td>${r.準時率}%</td><td>${r.回應天數} 天</td><td>${badge(grade, grade)}</td></tr>`;
+  }).join('');
+}
+
+// ─── P8: 合約管理 ─────────────────────────────────────────────────────────────
+function renderContract(p) {
+  Plotly.newPlot('chart-contract-value', [{
+    x: p.list.map(r=>r.合約編號), y: p.list.map(r=>r.金額/1000),
+    type:'bar', marker:{ color: p.list.map(r => r.狀態==='有效'?'#3b82f6':'#ef4444') },
+    text: p.list.map(r=>fmt(r.金額,'USD')), textposition:'outside'
+  }], layout({ title:{ text:'合約金額分布 (千元)', font:{ color:'#94a3b8' } } }), CFG);
+
+  // Gantt-style horizontal bar
+  const startDates = p.list.map(r => new Date(r.起始日).getFullYear() + (new Date(r.起始日).getMonth()/12));
+  const durations  = p.list.map(r => (new Date(r.到期日) - new Date(r.起始日)) / (365.25*24*3600*1000));
+  Plotly.newPlot('chart-contract-timeline', [{
+    x: durations, y: p.list.map(r=>r.合約編號),
+    type:'bar', orientation:'h',
+    marker:{ color: p.list.map(r => r.狀態==='有效'?'#10b981':'#ef4444') },
+    text: durations.map(d=>d.toFixed(1)+' 年'), textposition:'outside'
+  }], layout({ title:{ text:'合約期限 (年)', font:{ color:'#94a3b8' } }, margin:{ t:48,l:70,r:80,b:48 } }), CFG);
+
+  document.getElementById('contract-tbody').innerHTML = p.list.map(r =>
+    `<tr><td>${r.合約編號}</td><td>${r.供應商}</td><td>${r.類型}</td>
+     <td>${fmt(r.金額,'USD')}</td><td>${r.起始日}</td><td>${r.到期日}</td>
+     <td>${badge(r.狀態, r.狀態)}</td></tr>`
+  ).join('');
+
+  document.getElementById('expiring-tbody').innerHTML = p.expiringSoon.map(r => {
+    const urgency = r.剩餘天數 <= 30 ? 'danger' : r.剩餘天數 <= 60 ? 'warning' : 'info';
+    return `<tr><td>${r.合約}</td><td>${r.供應商}</td>
+     <td style="color:${urgency==='danger'?'#ef4444':urgency==='warning'?'#f59e0b':'#3b82f6'};font-weight:700">${r.剩餘天數} 天</td>
+     <td>${fmt(r.金額,'USD')}</td><td>${badge(urgency==='danger'?'high':urgency==='warning'?'medium':'low', r.動作)}</td></tr>`;
+  }).join('');
+}
+
+// ─── P9: 採購成熟度 ───────────────────────────────────────────────────────────
+function renderMaturity(p) {
+  const dims = p.dimensions;
+  Plotly.newPlot('chart-maturity-radar', [{
+    r: [...dims.map(d=>d.分數), dims[0].分數],
+    theta: [...dims.map(d=>d.維度), dims[0].維度],
+    type:'scatterpolar', fill:'toself',
+    line:{ color:'#8b5cf6' }, fillcolor:'rgba(139,92,246,0.2)'
+  }], layout({
+    title:{ text:'成熟度雷達圖', font:{ color:'#94a3b8' } },
+    polar:{ radialaxis:{ visible:true, range:[0,5], color:'#64748b' }, angularaxis:{ color:'#94a3b8' } }
+  }), CFG);
+
+  Plotly.newPlot('chart-maturity-current', [{
+    x: dims.map(d=>d.維度), y: dims.map(d=>d.分數), type:'bar',
+    marker:{ color: dims.map(d => d.分數 >= 3.5 ? '#10b981' : d.分數 >= 2.5 ? '#3b82f6' : '#f59e0b') },
+    text: dims.map(d=>d.分數.toFixed(1)), textposition:'outside'
+  }], layout({ title:{ text:'當前成熟度評分 (滿分5)', font:{ color:'#94a3b8' } }, yaxis:{ range:[0,5.5] } }), CFG);
+
+  Plotly.newPlot('chart-maturity-roadmap', [{
+    x: p.roadmap.map(r=>String(r.年份)), y: p.roadmap.map(r=>r.目標分數),
+    type:'scatter', mode:'lines+markers+text',
+    line:{ color:'#10b981', width:3 }, fill:'tozeroy', fillcolor:'rgba(16,185,129,0.12)',
+    text: p.roadmap.map(r=>r.重點+' ('+r.目標分數+')'), textposition:'top center'
+  }], layout({ title:{ text:'成熟度發展藍圖', font:{ color:'#94a3b8' } }, yaxis:{ range:[0,5.5] } }), CFG);
+
+  Plotly.newPlot('chart-maturity-benchmark', [{
+    labels: p.benchmark.map(r=>r.等級), values: p.benchmark.map(r=>r.佔比),
+    type:'pie', hole:0.42, marker:{ colors:['#ef4444','#f59e0b','#3b82f6','#10b981'] }
+  }], layout({ title:{ text:'產業標竿分布', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } } }), CFG);
+
+  document.getElementById('maturity-tbody').innerHTML = dims.map(d => {
+    const pct = (d.分數/d.滿分*100).toFixed(0);
+    const color = d.分數 >= 3.5 ? '#10b981' : d.分數 >= 2.5 ? '#3b82f6' : '#f59e0b';
+    return `<tr><td>${d.維度}</td><td style="font-weight:700;color:${color}">${d.分數} / ${d.滿分}</td>
+     <td><div class="progress-bar" style="width:160px"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div></td>
+     <td>${d.說明}</td></tr>`;
+  }).join('');
+}
+
+// ─── P10: 情境模擬 ────────────────────────────────────────────────────────────
+function renderSimulation(p) {
+  updateSimulation();
+
+  Plotly.newPlot('chart-sim-heatmap', [{
+    x: p.scenarios.map(r=>r.情境),
+    y: ['影響金額(千)','緩解成本(千)','緩解效果(%)'],
+    z: [
+      p.scenarios.map(r=>r.影響金額/1000),
+      p.scenarios.map(r=>r.緩解成本/1000),
+      p.scenarios.map(r=>r.緩解效果)
+    ],
+    type:'heatmap',
+    colorscale:[[0,'#10b981'],[0.5,'#f59e0b'],[1,'#ef4444']],
+    text: [
+      p.scenarios.map(r=>'$'+(r.影響金額/1000).toFixed(0)+'K'),
+      p.scenarios.map(r=>'$'+(r.緩解成本/1000).toFixed(0)+'K'),
+      p.scenarios.map(r=>r.緩解效果+'%')
+    ],
+    texttemplate: '%{text}', showscale: true
+  }], layout({ title:{ text:'情境分析矩陣', font:{ color:'#94a3b8' } }, xaxis:{ color:'#94a3b8' }, yaxis:{ color:'#94a3b8' }, margin:{ t:48,l:120,r:24,b:80 } }), CFG);
+
+  // Sensitivity: cost impact vs variable change
+  const xs = [-20,-15,-10,-5,0,5,10,15,20];
+  Plotly.newPlot('chart-sim-sensitivity', [
+    { x: xs, y: xs.map(v=>v*1.36), name:'採購量影響', type:'scatter', mode:'lines', line:{ color:'#3b82f6', width:2 } },
+    { x: xs, y: xs.map(v=>v*0.85), name:'單價影響',   type:'scatter', mode:'lines', line:{ color:'#10b981', width:2 } },
+    { x: xs, y: xs.map(v=>v*0.32), name:'匯率影響',   type:'scatter', mode:'lines', line:{ color:'#f59e0b', width:2 } }
+  ], layout({ title:{ text:'敏感度分析（變動% vs 成本影響百萬）', font:{ color:'#94a3b8' } }, legend:{ font:{ color:'#94a3b8' } }, xaxis:{ title:'變動 %', color:'#94a3b8' }, yaxis:{ title:'成本影響', color:'#94a3b8' } }), CFG);
+
+  document.getElementById('scenario-tbody').innerHTML = p.scenarios.map(r =>
+    `<tr><td><strong>${r.情境}</strong></td><td>${r.描述}</td>
+     <td style="color:#ef4444;font-weight:700">$${(r.影響金額/1000).toFixed(0)}K</td>
+     <td style="color:#f59e0b">$${(r.緩解成本/1000).toFixed(0)}K</td>
+     <td style="color:#10b981">${r.緩解效果}%</td></tr>`
+  ).join('');
+}
+
+function updateSimulation() {
+  const mat = parseFloat(document.getElementById('sim-material').value);
+  const fx  = parseFloat(document.getElementById('sim-fx').value);
+  const dem = parseFloat(document.getElementById('sim-demand').value);
+  const sav = parseFloat(document.getElementById('sim-saving').value);
+  document.getElementById('sim-material-val').textContent = (mat>0?'+':'')+mat+'%';
+  document.getElementById('sim-fx-val').textContent  = (fx>0?'+':'')+fx+'%';
+  document.getElementById('sim-demand-val').textContent = (dem>0?'+':'')+dem+'%';
+  document.getElementById('sim-saving-val').textContent = (sav>0?'+':'')+sav+'%';
+
+  const baseCost    = D.pages.summary.kpis.find(k=>k.KPI==='總採購金額')?.數值 || 12500000;
+  const baseSavings = D.pages.summary.kpis.find(k=>k.KPI==='成本節約')?.數值 || 1850000;
+  const matImpact = baseCost * 0.544 * (mat/100);   // 54.4% 是原物料佔比
+  const fxImpact  = baseCost * 0.6   * (fx/100);    // 60% 亞太採購
+  const demImpact = baseCost * (dem/100);
+  const savImpact = baseSavings * (sav/100);
+  const totalImpact = matImpact + fxImpact + demImpact;
+  const netSavings  = baseSavings + savImpact - totalImpact;
+
+  document.getElementById('sim-result-grid').innerHTML = [
+    { lbl:'原物料成本衝擊', val: fmt(Math.abs(matImpact),'USD'), color: matImpact > 0 ? '#ef4444' : '#10b981', prefix: matImpact>0?'▲':'▼' },
+    { lbl:'匯率風險敞口',   val: fmt(Math.abs(fxImpact),'USD'),  color: fxImpact  > 0 ? '#ef4444' : '#10b981', prefix: fxImpact>0?'▲':'▼' },
+    { lbl:'需求變化影響',   val: fmt(Math.abs(demImpact),'USD'), color: demImpact > 0 ? '#f59e0b' : '#10b981', prefix: demImpact>0?'▲':'▼' },
+    { lbl:'預期淨節約',     val: fmt(Math.abs(netSavings),'USD'),color: netSavings > 0 ? '#10b981' : '#ef4444', prefix: netSavings>0?'▲':'▼' }
+  ].map(r => `<div class="sim-card"><div class="sim-val" style="color:${r.color}">${r.prefix} ${r.val}</div><div class="sim-lbl">${r.lbl}</div></div>`).join('');
+}
+
+// ─── EXCEL UPLOAD ─────────────────────────────────────────────────────────────
+function handleExcelUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const sheet = name => XLSX.utils.sheet_to_json(wb.Sheets[name] || {});
+
+      const kpis = sheet('決策總覽');
+      if (kpis.length) D.pages.summary.kpis = kpis;
+
+      const alerts = sheet('決策總覽_警示');
+      if (alerts.length) D.pages.summary.alerts = alerts;
+
+      const byCategory = sheet('支出類別');
+      if (byCategory.length) D.pages.spend.byCategory = byCategory;
+
+      const byRegion = sheet('支出區域');
+      if (byRegion.length) D.pages.spend.byRegion = byRegion;
+
+      const bySupplier = sheet('支出供應商');
+      if (bySupplier.length) D.pages.spend.bySupplier = bySupplier;
+
+      const coverage = sheet('合約覆蓋率');
+      if (coverage.length) D.pages.spend.contractCoverage = coverage;
+
+      const supplierList = sheet('供應商');
+      if (supplierList.length) D.pages.supplier.list = supplierList.map(r => ({
+        名稱: r['名稱'], 類別: r['類別'], 金額: r['金額'],
+        績效: r['績效'], 風險: r['風險'], 準時率: r['準時率'],
+        合格率: r['合格率'], 評級: r['評級']
+      }));
+
+      const costType = sheet('節約類型');
+      if (costType.length) D.pages.cost.savingsByType = costType;
+
+      const costTarget = sheet('節約目標');
+      if (costTarget.length) D.pages.cost.targetVsActual = costTarget;
+
+      const variance = sheet('價格差異');
+      if (variance.length) D.pages.cost.priceVariance = variance;
+
+      const riskItems = sheet('風險項目');
+      if (riskItems.length) D.pages.risk.items = riskItems;
+
+      const esgScores = sheet('ESG評分');
+      if (esgScores.length) D.pages.esg.scores = esgScores;
+
+      const esgSupplier = sheet('ESG供應商');
+      if (esgSupplier.length) D.pages.esg.supplierESG = esgSupplier;
+
+      const carbon = sheet('碳排放');
+      if (carbon.length) D.pages.esg.carbonFootprint = carbon;
+
+      const spc = sheet('SPC數據');
+      if (spc.length) D.pages.quality.spcData = spc;
+
+      const defect = sheet('品質異常');
+      if (defect.length) D.pages.quality.defectTypes = defect;
+
+      const sQuality = sheet('供應商品質');
+      if (sQuality.length) D.pages.quality.supplierQuality = sQuality;
+
+      const contracts = sheet('合約');
+      if (contracts.length) D.pages.contract.list = contracts;
+
+      const expiring = sheet('即將到期');
+      if (expiring.length) D.pages.contract.expiringSoon = expiring;
+
+      const matDim = sheet('成熟度維度');
+      if (matDim.length) D.pages.maturity.dimensions = matDim;
+
+      const matRoadmap = sheet('成熟度藍圖');
+      if (matRoadmap.length) D.pages.maturity.roadmap = matRoadmap;
+
+      const scenarios = sheet('情境模擬');
+      if (scenarios.length) D.pages.simulation.scenarios = scenarios;
+
+      renderAll();
+      alert('✓ Excel 數據匯入成功！已重新渲染所有圖表。');
+    } catch(err) {
+      alert('匯入失敗：' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportPNG() {
+  const page = document.querySelector('.page.active');
+  document.body.classList.add('export-mode');
+  html2canvas(page, {
+    backgroundColor: '#0f172a', scale: 2, useCORS: true,
+    onclone: doc => {
+      doc.querySelectorAll('.card,.chart-container,.kpi-box').forEach(el => {
+        el.style.background = '#1e293b';
+        el.style.backdropFilter = 'none';
+      });
+    }
+  }).then(canvas => {
+    document.body.classList.remove('export-mode');
+    const a = document.createElement('a');
+    a.download = 'procurement-dashboard-' + Date.now() + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  });
+}
+
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const page = document.querySelector('.page.active');
+  document.body.classList.add('export-mode');
+  html2canvas(page, {
+    backgroundColor: '#0f172a', scale: 1.5, useCORS: true,
+    onclone: doc => {
+      doc.querySelectorAll('.card,.chart-container,.kpi-box').forEach(el => {
+        el.style.background = '#1e293b';
+        el.style.backdropFilter = 'none';
+      });
+    }
+  }).then(canvas => {
+    document.body.classList.remove('export-mode');
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const w = pdf.internal.pageSize.getWidth();
+    const h = canvas.height * w / canvas.width;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
+    pdf.save('procurement-dashboard-' + Date.now() + '.pdf');
+  });
+}
+
+function downloadTemplate() {
+  alert('請執行 python create_excel_template.py 生成 procurement_data_v3.xlsx，再上傳至本儀表板。');
+}
+
+// ─── DARK / LIGHT MODE ────────────────────────────────────────────────────────
+function toggleDark() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-btn').innerHTML = isLight ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+
+  // 重新渲染圖表以更新顏色
+  const fontColor = isLight ? '#475569' : '#94a3b8';
+  L.font.color = fontColor;
+  renderedPages.clear();
+  const active = document.querySelector('.page.active');
+  if (active) setTimeout(() => renderPage(active.id), 60);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('theme-btn').innerHTML = '<i class="fas fa-sun"></i>';
+  L.font.color = '#475569';
+}
+updateHeader();
+renderPage('summary');
+</script>
+</body>
+</html>

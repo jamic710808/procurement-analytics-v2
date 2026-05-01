@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>戰略採購與數據分析儀表板</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <!-- SheetJS for Excel Reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <nav class="sidebar glass-panel">
+        <div class="sidebar-header">
+            <h1><i class="fa-solid fa-chart-line"></i> 智能採購戰情室</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" class="active" data-target="page-summary"><i class="fa-solid fa-desktop"></i> 決策總覽 (Executive Summary)</a></li>
+            <li><a href="#" data-target="page-spend"><i class="fa-solid fa-cubes"></i> 支出多維分析 (Spend Cube)</a></li>
+            <li><a href="#" data-target="page-supplier"><i class="fa-solid fa-users-viewfinder"></i> 供應商績效與風險矩陣</a></li>
+            <li><a href="#" data-target="page-cost"><i class="fa-solid fa-money-bill-trend-up"></i> 成本節約與價格差異</a></li>
+            <li><a href="#" data-target="page-quality"><i class="fa-solid fa-shield-halved"></i> 品質與交付追蹤</a></li>
+            <li><a href="#" data-target="page-deviation"><i class="fa-solid fa-triangle-exclamation"></i> 計畫偏差管理</a></li>
+            <li><a href="#" data-target="page-efficiency"><i class="fa-solid fa-gauge-high"></i> 營運與流程效率</a></li>
+            <li><a href="#" data-target="page-simulator"><i class="fa-solid fa-flask"></i> 情境決策模擬器</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-header glass-panel">
+            <div class="header-title">
+                <span id="current-page-title" style="font-weight: 500; font-size: 1.1rem; color: var(--text-secondary);">決策總覽</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn" id="theme-toggle" style="background: transparent; color: var(--text-primary); border: 1px solid var(--glass-border);">
+                    <i class="fa-solid fa-sun" id="theme-icon"></i> <span id="theme-text">白天模式</span>
+                </button>
+                <span id="data-status" style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-regular fa-clock"></i> 數據狀態: 系統範例資料</span>
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> 匯入/更新資料
+                </button>
+            </div>
+        </header>
+
+        <div class="page-container">
+            <!-- 1. Executive Summary -->
+            <section id="page-summary" class="page active">
+                <h2 class="page-title">決策總覽 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">核心財務與風險 KPI 指標板</span></h2>
+                
+                <div class="grid-4">
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">總管理支出 (SUM)</div>
+                        <div class="kpi-value" id="kpi-sum">$8.4M</div>
+                        <div class="kpi-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> +5.2% vs 上月</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">綜合採購節省率</div>
+                        <div class="kpi-value text-green" id="kpi-saving">4.8%</div>
+                        <div class="kpi-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 超越目標 0.8%</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">平均供應商準時交付率 (OTD)</div>
+                        <div class="kpi-value" id="kpi-otd">92.4%</div>
+                        <div class="kpi-trend trend-down"><i class="fa-solid fa-arrow-trend-down"></i> -1.2% vs 上月</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">高風險供應商數量</div>
+                        <div class="kpi-value text-red" id="kpi-risk">3</div>
+                        <div class="kpi-trend trend-down"><i class="fa-solid fa-triangle-exclamation"></i> 需立即介入整改</div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">核心績效趨勢 (月度)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-summary-trend"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-panel chart-card" style="display:flex; flex-direction:column; justify-content:flex-start;">
+                        <div class="chart-header">
+                            <span class="chart-title">高風險預警清單</span>
+                        </div>
+                        <table class="data-table" id="table-summary-alerts">
+                            <thead>
+                                <tr>
+                                    <th>警報類型</th>
+                                    <th>供應商 / 品項</th>
+                                    <th>嚴重度</th>
+                                    <th>狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- JS injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Spend Analysis -->
+            <section id="page-spend" class="page">
+                <h2 class="page-title">支出多維分析 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">支出立方體建模分析</span></h2>
+                <div class="grid-2">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">品類支出結構 (Category)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-spend-category"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">前十大供應商集中度 (Who)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-spend-supplier"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-1">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">非合約支出 (Maverick Spend) 分佈</span>
+                        </div>
+                        <div class="chart-container" style="min-height:250px;">
+                            <canvas id="chart-spend-maverick"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Supplier Risk & Performance -->
+            <section id="page-supplier" class="page">
+                <h2 class="page-title">供應商績效與風險矩陣 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">利用四象限識別風險聚集</span></h2>
+                <div class="grid-1">
+                    <div class="glass-panel chart-card" style="height: 400px;">
+                        <div class="chart-header">
+                            <span class="chart-title">四象限績效分佈 (X:準時率, Y:合格率, 氣泡:採購額)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-supplier-quadrant"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-1 mt-4">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">供應商綜合評分排名 Top 5 / Bottom 5</span>
+                        </div>
+                        <div class="chart-container" style="min-height:250px;">
+                            <canvas id="chart-supplier-ranking"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Cost Saving & Price Variance -->
+            <section id="page-cost" class="page">
+                <h2 class="page-title">成本節約與價格差異 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">PPV與三線價格對比分析</span></h2>
+                <div class="grid-3">
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">累計成本規避 (Cost Avoidance)</div>
+                        <div class="kpi-value text-blue" id="kpi-avoidance">$1.2M</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">採購價格偏差 (PPV)</div>
+                        <div class="kpi-value text-red" id="kpi-ppv">+$150K</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">採購投資回報率 (ROI)</div>
+                        <div class="kpi-value" id="kpi-roi">420%</div>
+                    </div>
+                </div>
+                <div class="grid-1">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">核心原物料價格指數追蹤 (三線對比：本年/去年/市場)</span>
+                        </div>
+                        <div class="chart-container" style="height:350px;">
+                            <canvas id="chart-cost-price-variance"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Quality & Delivery -->
+            <section id="page-quality" class="page">
+                <h2 class="page-title">品質與交付追蹤 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">缺陷真因挖掘與預警機制</span></h2>
+                <div class="grid-2">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">品質缺陷根因帕雷托圖 (Pareto)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-quality-defects"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">平均交期偏差天數分佈</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-quality-delivery"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. Execution Deviation -->
+            <section id="page-deviation" class="page">
+                <h2 class="page-title">計畫偏差管理 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">超採與漏採庫存風險追蹤</span></h2>
+                <div class="grid-2">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">各品類計畫 vs 實際數量差異 (超/漏採)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-deviation-category"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">計畫完成率趨勢追蹤</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-deviation-trend"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. Operational Efficiency -->
+            <section id="page-efficiency" class="page">
+                <h2 class="page-title">營運與流程效率 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">P2P 流程自動化與時效分析</span></h2>
+                <div class="grid-4">
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">平均 PO 週期時間</div>
+                        <div class="kpi-value">2.4 天</div>
+                        <div class="kpi-trend trend-up"><i class="fa-solid fa-arrow-down"></i> 減少 0.5 天</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">自動化發票處理率</div>
+                        <div class="kpi-value text-blue">78%</div>
+                        <div class="kpi-trend trend-up"><i class="fa-solid fa-arrow-up"></i> +4% vs 上季</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">採購訂單準確率</div>
+                        <div class="kpi-value text-green">98.5%</div>
+                    </div>
+                    <div class="glass-panel kpi-card">
+                        <div class="kpi-title">緊急採購比率</div>
+                        <div class="kpi-value text-red">12%</div>
+                        <div class="kpi-trend trend-down"><i class="fa-solid fa-triangle-exclamation"></i> 高於 10% 基準線</div>
+                    </div>
+                </div>
+                <div class="grid-1">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">各部門緊急採購佔比與流程效率對比</span>
+                        </div>
+                        <div class="chart-container" style="height:300px;">
+                            <canvas id="chart-efficiency-radar"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 8. What-If Scenario Simulator -->
+            <section id="page-simulator" class="page">
+                <h2 class="page-title">情境決策模擬器 <span style="font-size:1rem;color:var(--text-secondary);font-weight:400;">關鍵變數預測與動態戰略推演</span></h2>
+                <div class="grid-2">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">控制面板: 變數調整</span>
+                        </div>
+                        <div style="padding:10px 0;">
+                            <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:20px;">
+                                調整以下市場變數，預測對未來六個月的採購成本與庫存水位影響。
+                            </p>
+                            
+                            <div style="margin-bottom:20px;">
+                                <label style="display:block;margin-bottom:8px;">原物料市場預期漲跌幅: <span id="sim-mat-val" class="text-blue">0%</span></label>
+                                <input type="range" id="sim-mat" min="-20" max="20" value="0" style="width:100%;" oninput="document.getElementById('sim-mat-val').innerText = this.value + '%'; window.runSimulation();">
+                            </div>
+                            
+                            <div style="margin-bottom:20px;">
+                                <label style="display:block;margin-bottom:8px;">全球港口延遲天數 (平均): <span id="sim-delay-val" class="text-red">0 天</span></label>
+                                <input type="range" id="sim-delay" min="0" max="30" value="0" style="width:100%;" oninput="document.getElementById('sim-delay-val').innerText = this.value + ' 天'; window.runSimulation();">
+                            </div>
+
+                            <div style="margin-bottom:20px;">
+                                <label style="display:block;margin-bottom:8px;">需求訂單增長率: <span id="sim-demand-val" class="text-green">0%</span></label>
+                                <input type="range" id="sim-demand" min="-30" max="50" value="0" style="width:100%;" oninput="document.getElementById('sim-demand-val').innerText = this.value + '%'; window.runSimulation();">
+                            </div>
+                            
+                            <button class="btn btn-primary" onclick="window.runSimulation()" style="width:100%;justify-content:center;">
+                                <i class="fa-solid fa-play"></i> 執行預測計算
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">預測影響分析 (成本 vs 庫存缺口)</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-simulator-result"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-panel" style="margin-top: 20px; padding: 20px; border-left: 4px solid var(--accent-blue);">
+                    <h3 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--accent-blue);"><i class="fa-solid fa-circle-info"></i> 敏感性分析模型：假設條件與公式說明</h3>
+                    <div class="grid-2" style="margin-bottom: 0; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; gap: 30px;">
+                        <div>
+                            <strong style="color: var(--text-primary);"><i class="fa-solid fa-money-check-dollar"></i> 預估總成本運算模型：</strong>
+                            <div style="background: var(--table-hover); padding: 12px; border-radius: 6px; margin: 10px 0; font-family: 'Courier New', Courier, monospace; font-weight: bold; border: 1px solid var(--table-border);">
+                                總成本 = 基準成本 × (1 + 原物料漲幅) × (1 + 需求增長) + (延遲天數 × 滯港急件成本)
+                            </div>
+                            <ul style="padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 6px;"><strong style="color: var(--text-primary);">基準成本 (Base Cost)</strong>：現有支出的基礎水位，系統預設為 $5,000,000 作為基準。</li>
+                                <li style="margin-bottom: 6px;"><strong style="color: var(--text-primary);">乘數效應</strong>：原物料價格波動與需求量的增加，對成本會產生相乘的疊加放大效應。</li>
+                                <li><strong style="color: var(--text-primary);">延遲懲罰成本</strong>：每延遲 1 天，追加約 $15,000 的空運急件與物流滯留管理成本。</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong style="color: var(--text-primary);"><i class="fa-solid fa-triangle-exclamation"></i> 庫存缺口風險運算模型：</strong>
+                            <div style="background: var(--table-hover); padding: 12px; border-radius: 6px; margin: 10px 0; font-family: 'Courier New', Courier, monospace; font-weight: bold; border: 1px solid var(--table-border);">
+                                缺口風險(%) = MAX(0, (需求增長 × 0.8) + (延遲天數 × 2%) - 安全庫存緩衝5%)
+                            </div>
+                            <ul style="padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 6px;"><strong style="color: var(--text-primary);">安全庫存緩衝</strong>：系統假設在常態下，具備能無傷吸收 5% 供應鏈波動的緩衝期。</li>
+                                <li style="margin-bottom: 6px;"><strong style="color: var(--text-primary);">需求衝擊係數</strong>：每增加 1% 的額外訂單需求，將消耗約 0.8% 的當期庫存儲備能力。</li>
+                                <li><strong style="color: var(--text-primary);">延遲斷鏈衝擊</strong>：每增加 1 天的延遲交貨，對安全水位造成時間上 2% 的壓力折損。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/data_engine.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

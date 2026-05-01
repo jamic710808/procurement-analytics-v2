@@ -1,0 +1,253 @@
+{
+  "company": {
+    "name": "XYZ 製造股份有限公司",
+    "code": "XYZMFG",
+    "industry": "電子製造服務 (EMS)",
+    "reportDate": "2025-Q4",
+    "currency": "USD"
+  },
+  "pages": {
+    "summary": {
+      "title": "決策總覽",
+      "kpis": {
+        "totalSpend": {"value": 12500000, "unit": "USD", "delta": 8.5, "trend": "up"},
+        "supplierCount": {"value": 156, "unit": "家", "delta": -3, "trend": "down"},
+        "costSavings": {"value": 1850000, "unit": "USD", "delta": 12.3, "trend": "up"},
+        "onTimeDelivery": {"value": 94.2, "unit": "%", "delta": 2.1, "trend": "up"},
+        "qualityRate": {"value": 98.7, "unit": "%", "delta": 0.5, "trend": "up"},
+        "riskExposure": {"value": 1250000, "unit": "USD", "delta": -15.2, "trend": "down"}
+      },
+      "alerts": [
+        {"type": "critical", "message": "供應商 A 風險評級升至 HIGH", "action": "立即檢視"},
+        {"type": "warning", "message": "3 項物料庫存低於安全水位", "action": "檢視庫存"},
+        {"type": "info", "message": "Q4 成本節約目標達成率 92%", "action": "查看詳情"}
+      ]
+    },
+    "spend": {
+      "title": "支出分析",
+      "byCategory": [
+        {"category": "原物料", "amount": 6800000, "percentage": 54.4},
+        {"category": "包裝材料", "amount": 2100000, "percentage": 16.8},
+        {"category": "設備零件", "amount": 1850000, "percentage": 14.8},
+        {"category": "物流服務", "amount": 1100000, "percentage": 8.8},
+        {"category": "其他", "amount": 650000, "percentage": 5.2}
+      ],
+      "byRegion": [
+        {"region": "亞太", "amount": 7500000, "percentage": 60},
+        {"region": "美洲", "amount": 2500000, "percentage": 20},
+        {"region": "歐洲", "amount": 2500000, "percentage": 20}
+      ],
+      "bySupplier": [
+        {"supplier": "供應商 A", "amount": 3200000, "percentage": 25.6},
+        {"supplier": "供應商 B", "amount": 1800000, "percentage": 14.4},
+        {"supplier": "供應商 C", "amount": 1500000, "percentage": 12.0},
+        {"supplier": "供應商 D", "amount": 1200000, "percentage": 9.6},
+        {"supplier": "其他", "amount": 4800000, "percentage": 38.4}
+      ],
+      "contractCoverage": [
+        {"category": "原物料", "coverage": 95},
+        {"category": "包裝材料", "coverage": 88},
+        {"category": "設備零件", "coverage": 72},
+        {"category": "物流服務", "coverage": 65},
+        {"category": "其他", "coverage": 35}
+      ]
+    },
+    "supplier": {
+      "title": "供應商矩陣",
+      "suppliers": [
+        {"name": "供應商 A", "performance": 92, "risk": 15, "spend": 3200000, "category": "原物料", "rating": "A", "onTime": 96.5, "quality": 99.2},
+        {"name": "供應商 B", "performance": 88, "risk": 25, "spend": 1800000, "category": "包裝", "rating": "B", "onTime": 94.2, "quality": 98.5},
+        {"name": "供應商 C", "performance": 85, "risk": 45, "spend": 1500000, "category": "零件", "rating": "C", "onTime": 89.1, "quality": 97.8},
+        {"name": "供應商 D", "performance": 78, "risk": 60, "spend": 1200000, "category": "原物料", "rating": "D", "onTime": 82.5, "quality": 96.2},
+        {"name": "供應商 E", "performance": 95, "risk": 10, "spend": 950000, "category": "設備", "rating": "A", "onTime": 98.2, "quality": 99.5},
+        {"name": "供應商 F", "performance": 72, "risk": 75, "spend": 800000, "category": "服務", "rating": "D", "onTime": 75.8, "quality": 94.5},
+        {"name": "供應商 G", "performance": 82, "risk": 35, "spend": 650000, "category": "包裝", "rating": "B", "onTime": 91.2, "quality": 98.1},
+        {"name": "供應商 H", "performance": 90, "risk": 20, "spend": 580000, "category": "零件", "rating": "A", "onTime": 95.5, "quality": 99.0}
+      ],
+      "riskDistribution": [
+        {"level": "低風險", "count": 45, "percentage": 29},
+        {"level": "中風險", "count": 78, "percentage": 50},
+        {"level": "高風險", "count": 33, "percentage": 21}
+      ]
+    },
+    "cost": {
+      "title": "成本節約",
+      "savingsByType": [
+        {"type": "價格談判", "amount": 820000, "percentage": 44.3},
+        {"type": "規格優化", "amount": 450000, "percentage": 24.3},
+        {"type": "數量折扣", "amount": 320000, "percentage": 17.3},
+        {"type": "供應商整合", "amount": 180000, "percentage": 9.7},
+        {"type": "替代材料", "amount": 80000, "percentage": 4.3}
+      ],
+      "priceVariance": [
+        {"material": "鋁合金板材", "quarter": "Q1", "lastYear": 125, "current": 118, "variance": -5.6},
+        {"material": "鋁合金板材", "quarter": "Q2", "lastYear": 125, "current": 122, "variance": -2.4},
+        {"material": "鋁合金板材", "quarter": "Q3", "lastYear": 125, "current": 128, "variance": 2.4},
+        {"material": "鋁合金板材", "quarter": "Q4", "lastYear": 125, "current": 132, "variance": 5.6},
+        {"material": "塑膠粒料", "quarter": "Q1", "lastYear": 85, "current": 82, "variance": -3.5},
+        {"material": "塑膠粒料", "quarter": "Q2", "lastYear": 85, "current": 88, "variance": 3.5},
+        {"material": "塑膠粒料", "quarter": "Q3", "lastYear": 85, "current": 86, "variance": 1.2},
+        {"material": "塑膠粒料", "quarter": "Q4", "lastYear": 85, "current": 84, "variance": -1.2}
+      ],
+      "targetVsActual": [
+        {"month": "Jan", "target": 150000, "actual": 145000, "achievement": 96.7},
+        {"month": "Feb", "target": 150000, "actual": 162000, "achievement": 108.0},
+        {"month": "Mar", "target": 160000, "actual": 158000, "achievement": 98.8},
+        {"month": "Apr", "target": 160000, "actual": 175000, "achievement": 109.4},
+        {"month": "May", "target": 165000, "actual": 168000, "achievement": 101.8},
+        {"month": "Jun", "target": 165000, "actual": 182000, "achievement": 110.3}
+      ]
+    },
+    "risk": {
+      "title": "風險管控",
+      "riskItems": [
+        {"id": "R001", "category": "供應商", "description": "單一供應商依賴過高", "severity": "HIGH", "likelihood": "LIKELY", "impact": 250000, "mitigation": "開發替代供應商", "status": "進行中", "owner": "採購部 王經理"},
+        {"id": "R002", "category": "地緣政治", "description": "亞洲供應鏈風險", "severity": "MEDIUM", "likelihood": "POSSIBLE", "impact": 180000, "mitigation": "多元化供應商", "status": "規劃中", "owner": "供應鏈部 李經理"},
+        {"id": "R003", "category": "品質", "description": "關鍵物料合格率下降", "severity": "HIGH", "likelihood": "OCCASIONAL", "impact": 320000, "mitigation": "加強進料檢驗", "status": "已完成", "owner": "品質部 陳經理"},
+        {"id": "R004", "category": "財務", "description": "匯率波動風險", "severity": "MEDIUM", "likelihood": "LIKELY", "impact": 95000, "mitigation": "避險合約", "status": "監控中", "owner": "財務部 張經理"},
+        {"id": "R005", "category": "庫存", "description": "安全庫存不足", "severity": "LOW", "likelihood": "RARE", "impact": 45000, "mitigation": "調整安全庫存", "status": "已完成", "owner": "倉儲部 劉經理"}
+      ],
+      "riskHeatmap": [
+        {"impact": "嚴重", "likelihood": "高", "count": 2},
+        {"impact": "嚴重", "likelihood": "中", "count": 3},
+        {"impact": "輕微", "likelihood": "高", "count": 1},
+        {"impact": "輕微", "likelihood": "低", "count": 8}
+      ]
+    },
+    "esg": {
+      "title": "ESG 永續評核",
+      "scores": {
+        "environmental": {"score": 72, "target": 80, "trend": "up"},
+        "social": {"score": 68, "target": 75, "trend": "up"},
+        "governance": {"score": 78, "target": 80, "trend": "stable"}
+      },
+      "supplierESG": [
+        {"supplier": "供應商 A", "environment": 85, "social": 78, "governance": 82, "overall": 82},
+        {"supplier": "供應商 B", "environment": 72, "social": 75, "governance": 70, "overall": 72},
+        {"supplier": "供應商 C", "environment": 65, "social": 68, "governance": 72, "overall": 68},
+        {"supplier": "供應商 D", "environment": 55, "social": 62, "governance": 65, "overall": 61}
+      ],
+      "carbonFootprint": [
+        {"year": "2022", "emissions": 12500, "target": 13000},
+        {"year": "2023", "emissions": 11800, "target": 12000},
+        {"year": "2024", "emissions": 10500, "target": 11000},
+        {"year": "2025", "emissions": 9200, "target": 10000}
+      ]
+    },
+    "quality": {
+      "title": "品質 SPC 管制",
+      "spcData": [
+        {"week": "W1", "cpk": 1.45, "defectRate": 0.32, "target": 1.33},
+        {"week": "W2", "cpk": 1.52, "defectRate": 0.28, "target": 1.33},
+        {"week": "W3", "cpk": 1.38, "defectRate": 0.38, "target": 1.33},
+        {"week": "W4", "cpk": 1.55, "defectRate": 0.25, "target": 1.33},
+        {"week": "W5", "cpk": 1.48, "defectRate": 0.30, "target": 1.33},
+        {"week": "W6", "cpk": 1.62, "defectRate": 0.22, "target": 1.33}
+      ],
+      "defectTypes": [
+        {"type": "尺寸偏差", "count": 45, "percentage": 32, "cost": 12500},
+        {"type": "外觀瑕疵", "count": 38, "percentage": 27, "cost": 8200},
+        {"type": "功能異常", "count": 28, "percentage": 20, "cost": 28000},
+        {"type": "包裝損壞", "count": 18, "percentage": 13, "cost": 3500},
+        {"type": "標籤錯誤", "count": 11, "percentage": 8, "cost": 1200}
+      ],
+      "supplierQuality": [
+        {"supplier": "A供應商", "defectPPM": 850, "onTimeRate": 96.5, "responseTime": 2.5},
+        {"supplier": "B供應商", "defectPPM": 1200, "onTimeRate": 94.2, "responseTime": 4.2},
+        {"supplier": "C供應商", "defectPPM": 2100, "onTimeRate": 89.1, "responseTime": 8.5},
+        {"supplier": "D供應商", "defectPPM": 3500, "onTimeRate": 82.5, "responseTime": 12.0}
+      ]
+    },
+    "contract": {
+      "title": "合約生命週期",
+      "contracts": [
+        {"id": "C001", "supplier": "供應商 A", "type": "年度框架", "value": 2500000, "startDate": "2025-01-01", "endDate": "2025-12-31", "status": "有效", "renewal": "2025-Q4"},
+        {"id": "C002", "supplier": "供應商 B", "type": "2年期", "value": 1800000, "startDate": "2024-07-01", "endDate": "2026-06-30", "status": "有效", "renewal": "2026-Q2"},
+        {"id": "C003", "supplier": "供應商 C", "type": "單次採購", "value": 850000, "startDate": "2025-03-01", "endDate": "2025-08-31", "status": "到期", "renewal": "N/A"},
+        {"id": "C004", "supplier": "供應商 D", "type": "年度框架", "value": 1200000, "startDate": "2025-04-01", "endDate": "2026-03-31", "status": "有效", "renewal": "2026-Q1"},
+        {"id": "C005", "supplier": "供應商 E", "type": "3年期", "value": 3500000, "startDate": "2024-01-01", "endDate": "2026-12-31", "status": "有效", "renewal": "2026-Q4"}
+      ],
+      "expiringSoon": [
+        {"contract": "C003", "supplier": "供應商 C", "daysLeft": 15, "value": 850000, "action": "立即續約"},
+        {"contract": "C006", "supplier": "供應商 F", "daysLeft": 45, "value": 620000, "action": "評估談判"},
+        {"contract": "C007", "supplier": "供應商 G", "daysLeft": 60, "value": 480000, "action": "準備招標"}
+      ]
+    },
+    "maturity": {
+      "title": "採購成熟度",
+      "dimensions": [
+        {"dimension": "策略採購", "score": 3.2, "maxScore": 5, "description": "建立採購策略框架"},
+        {"dimension": "供應商管理", "score": 3.8, "maxScore": 5, "description": "完整供應商評估制度"},
+        {"dimension": "流程優化", "score": 2.9, "maxScore": 5, "description": "標準化流程進行中"},
+        {"dimension": "數據分析", "score": 2.5, "maxScore": 5, "description": "基礎數據收集階段"},
+        {"dimension": "風險管理", "score": 3.5, "maxScore": 5, "description": "風險識別與應對"},
+        {"dimension": "永續採購", "score": 2.8, "maxScore": 5, "description": "ESG 整合規劃中"}
+      ],
+      "benchmark": [
+        {"level": "初始級", "range": "1.0-2.0", "percentage": 15},
+        {"level": "發展級", "range": "2.0-3.0", "percentage": 35},
+        {"level": "定義級", "range": "3.0-4.0", "percentage": 32},
+        {"level": "優化級", "range": "4.0-5.0", "percentage": 18}
+      ],
+      "roadmap": [
+        {"year": "2025", "focus": "流程標準化", "target": 3.2},
+        {"year": "2026", "focus": "數據驅動", "target": 3.8},
+        {"year": "2027", "focus": "智慧採購", "target": 4.5}
+      ]
+    },
+    "simulation": {
+      "title": "情境模擬站",
+      "scenarios": [
+        {
+          "name": "供應商斷鏈",
+          "description": "假設主要供應商因天災停止供貨 30 天",
+          "impact": {
+            "productionDelay": "15 天",
+            "estimatedLoss": 450000,
+            "alternativeSource": "供應商 B (需 7 天切換)",
+            "additionalCost": 85000
+          },
+          "mitigation": {
+            "action": "建立安全庫存 + 替代供應商",
+            "cost": 125000,
+            "effectiveness": "85%"
+          }
+        },
+        {
+          "name": "原物料漲價 20%",
+          "description": "鋁合金市場價格突然飆漲",
+          "impact": {
+            "annualCostIncrease": 1360000,
+            "marginImpact": "-2.5%",
+            "pricePassThrough": "60% 可轉嫁"
+          },
+          "mitigation": {
+            "action": "簽訂價格保護合約 + 開發替代材料",
+            "cost": 180000,
+            "effectiveness": "90%"
+          }
+        },
+        {
+          "name": "匯率波動 ±10%",
+          "description": "美元兌亞洲貨幣大幅波動",
+          "impact": {
+            "bestCase": -180000,
+            "worstCase": 320000,
+            "neutral": 0
+          },
+          "mitigation": {
+            "action": "外匯避險 + 本地化採購",
+            "cost": 45000,
+            "effectiveness": "70%"
+          }
+        }
+      ],
+      "sensitivity": [
+        {"variable": "採購量", "base": 100, "range": [80, 120], "costImpact": [-15, 18]},
+        {"variable": "單價", "base": 100, "range": [90, 110], "costImpact": [-10, 12]},
+        {"variable": "供應商數", "base": 5, "range": [3, 10], "costImpact": [8, -5]},
+        {"variable": "合約覆蓋率", "base": 80, "range": [60, 100], "costImpact": [10, -8]}
+      ]
+    }
+  }
+}
