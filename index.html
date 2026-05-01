@@ -647,7 +647,7 @@ tr:last-child td { border-bottom: none; }
       <select id="flt-year" onchange="applyFilters()">
         <option value="all">所有年份</option>
         <option value="2024">2024</option>
-        <option value="2025" selected>2025</option>
+        <option value="2025">2025</option>
       </select>
       <select id="flt-quarter" onchange="applyFilters()">
         <option value="all">所有季度</option>
@@ -1850,32 +1850,36 @@ function saveEditedData() {
 // CHART RENDERERS
 // ============================================================
 function renderSummaryCharts() {
+  const filteredSpend = getFilteredSpend();
+  const filteredSuppliers = getFilteredSuppliers();
+
   // KPI calculations
-  const totalSpend = AppData.spend.reduce((sum, d) => sum + (d.金額 || 0), 0);
+  const totalSpend = filteredSpend.reduce((sum, d) => sum + (d.金額 || 0), 0);
   const totalSaving = AppData.savings.reduce((sum, d) => sum + (d.金額 || 0), 0);
-  const avgOTD = AppData.suppliers.length > 0
-    ? (AppData.suppliers.reduce((sum, d) => sum + parseFloat(d.準時率 || 0), 0) / AppData.suppliers.length).toFixed(1)
+  const avgOTD = filteredSuppliers.length > 0
+    ? (filteredSuppliers.reduce((sum, d) => sum + parseFloat(d.準時率 || 0), 0) / filteredSuppliers.length).toFixed(1)
     : 0;
-  const avgQuality = AppData.suppliers.length > 0
-    ? (AppData.suppliers.reduce((sum, d) => sum + parseFloat(d.合格率 || 0), 0) / AppData.suppliers.length).toFixed(1)
+  const avgQuality = filteredSuppliers.length > 0
+    ? (filteredSuppliers.reduce((sum, d) => sum + parseFloat(d.合格率 || 0), 0) / filteredSuppliers.length).toFixed(1)
     : 0;
-  const riskCount = AppData.suppliers.filter(d => d.風險 === '高').length;
+  const riskCount = filteredSuppliers.filter(d => d.風險 === '高').length;
 
   document.getElementById('kpi-spend').textContent = formatCurrency(totalSpend);
   document.getElementById('kpi-saving').textContent = formatCurrency(totalSaving);
-  document.getElementById('kpi-suppliers').textContent = AppData.suppliers.length;
+  document.getElementById('kpi-suppliers').textContent = filteredSuppliers.length;
   document.getElementById('kpi-otd').textContent = avgOTD + '%';
   document.getElementById('kpi-quality').textContent = avgQuality + '%';
   document.getElementById('kpi-risk-count').textContent = riskCount;
 
   // Trend Chart
   const monthlySpend = {};
-  AppData.spend.forEach(d => {
+  filteredSpend.forEach(d => {
     const month = d.日期?.substring(0, 7) || '2025-01';
     monthlySpend[month] = (monthlySpend[month] || 0) + (d.金額 || 0);
   });
   const sortedMonths = Object.keys(monthlySpend).sort();
   const trendCanvas = document.getElementById('chart-trend');
+  if (chartInstances['chart-trend']) { chartInstances['chart-trend'].destroy(); }
   chartInstances['chart-trend'] = new Chart(trendCanvas, {
     type: 'line',
     data: {
@@ -1894,10 +1898,11 @@ function renderSummaryCharts() {
 
   // Category Donut
   const categorySpend = {};
-  AppData.spend.forEach(d => {
+  filteredSpend.forEach(d => {
     categorySpend[d.品類] = (categorySpend[d.品類] || 0) + (d.金額 || 0);
   });
   const catCanvas = document.getElementById('chart-category');
+  if (chartInstances['chart-category']) { chartInstances['chart-category'].destroy(); }
   chartInstances['chart-category'] = new Chart(catCanvas, {
     type: 'doughnut',
     data: {
@@ -1912,8 +1917,9 @@ function renderSummaryCharts() {
 
   // Risk Distribution
   const riskDist = { '低': 0, '中': 0, '高': 0 };
-  AppData.suppliers.forEach(d => { riskDist[d.風險] = (riskDist[d.風險] || 0) + 1; });
+  filteredSuppliers.forEach(d => { riskDist[d.風險] = (riskDist[d.風險] || 0) + 1; });
   const riskCanvas = document.getElementById('chart-risk-dist');
+  if (chartInstances['chart-risk-dist']) { chartInstances['chart-risk-dist'].destroy(); }
   chartInstances['chart-risk-dist'] = new Chart(riskCanvas, {
     type: 'pie',
     data: {
@@ -1928,6 +1934,7 @@ function renderSummaryCharts() {
 
   // Radar Chart
   const radarCanvas = document.getElementById('chart-radar');
+  if (chartInstances['chart-radar']) { chartInstances['chart-radar'].destroy(); }
   chartInstances['chart-radar'] = new Chart(radarCanvas, {
     type: 'radar',
     data: {
@@ -1953,12 +1960,16 @@ function renderSummaryCharts() {
 }
 
 function renderSpendCharts() {
+  const filteredSpend = getFilteredSpend();
+  const filteredSuppliers = getFilteredSuppliers();
+
   // Category Bar
   const categorySpend = {};
-  AppData.spend.forEach(d => {
+  filteredSpend.forEach(d => {
     categorySpend[d.品類] = (categorySpend[d.品類] || 0) + (d.金額 || 0);
   });
   const spendCatCanvas = document.getElementById('chart-spend-category');
+  if (chartInstances['chart-spend-category']) { chartInstances['chart-spend-category'].destroy(); }
   chartInstances['chart-spend-category'] = new Chart(spendCatCanvas, {
     type: 'bar',
     data: {
@@ -1974,10 +1985,11 @@ function renderSpendCharts() {
 
   // Department Bar
   const deptSpend = {};
-  AppData.spend.forEach(d => {
+  filteredSpend.forEach(d => {
     deptSpend[d.部門] = (deptSpend[d.部門] || 0) + (d.金額 || 0);
   });
   const deptCanvas = document.getElementById('chart-spend-dept');
+  if (chartInstances['chart-spend-dept']) { chartInstances['chart-spend-dept'].destroy(); }
   chartInstances['chart-spend-dept'] = new Chart(deptCanvas, {
     type: 'bar',
     data: {
@@ -1992,9 +2004,10 @@ function renderSpendCharts() {
   });
 
   // Maverick Spend
-  const contractSpend = AppData.spend.filter(d => d.金額 > 100000).reduce((sum, d) => sum + d.金額, 0);
-  const maverickSpend = AppData.spend.filter(d => d.金額 <= 100000).reduce((sum, d) => sum + d.金額, 0);
+  const contractSpend = filteredSpend.filter(d => d.金額 > 100000).reduce((sum, d) => sum + d.金額, 0);
+  const maverickSpend = filteredSpend.filter(d => d.金額 <= 100000).reduce((sum, d) => sum + d.金額, 0);
   const maverickCanvas = document.getElementById('chart-maverick');
+  if (chartInstances['chart-maverick']) { chartInstances['chart-maverick'].destroy(); }
   chartInstances['chart-maverick'] = new Chart(maverickCanvas, {
     type: 'bar',
     data: {
@@ -2009,16 +2022,16 @@ function renderSpendCharts() {
 
   // Top Suppliers Table
   const supSpend = {};
-  AppData.spend.forEach(d => {
+  filteredSpend.forEach(d => {
     supSpend[d.供應商] = (supSpend[d.供應商] || 0) + (d.金額 || 0);
   });
   const topSuppliers = Object.entries(supSpend).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const totalSpend = topSuppliers.reduce((sum, [, v]) => sum + v, 0);
   const tableBody = document.getElementById('table-top-suppliers');
   tableBody.innerHTML = topSuppliers.map(([name, amount], i) => {
-    const sup = AppData.suppliers.find(s => s.供應商 === name) || {};
-    const pct = ((amount / totalSpend) * 100).toFixed(1);
-    const status = parseFloat(sup.風險) === '高' ? '<span class="badge b-red">高風險</span>' : '<span class="badge b-green">正常</span>';
+    const sup = filteredSuppliers.find(s => s.供應商 === name) || {};
+    const pct = totalSpend > 0 ? ((amount / totalSpend) * 100).toFixed(1) : '0.0';
+    const status = sup.風險 === '高' ? '<span class="badge b-red">高風險</span>' : '<span class="badge b-green">正常</span>';
     return `<tr>
       <td>${i + 1}</td>
       <td>${name}</td>
@@ -2032,19 +2045,22 @@ function renderSpendCharts() {
 }
 
 function renderSupplierCharts() {
+  const filteredSuppliers = getFilteredSuppliers();
+
   // Quadrant Scatter
   const quadCanvas = document.getElementById('chart-supplier-quad');
+  if (chartInstances['chart-supplier-quad']) { chartInstances['chart-supplier-quad'].destroy(); }
   chartInstances['chart-supplier-quad'] = new Chart(quadCanvas, {
     type: 'scatter',
     data: {
       datasets: [{
         label: '供應商',
-        data: AppData.suppliers.map(s => ({
+        data: filteredSuppliers.map(s => ({
           x: parseFloat(s.合格率) || 90,
           y: parseFloat(s.準時率) || 90,
           r: (parseInt(s.支出) / 500000) || 10
         })),
-        backgroundColor: AppData.suppliers.map(s =>
+        backgroundColor: filteredSuppliers.map(s =>
           s.風險 === '高' ? 'rgba(239,68,68,0.7)' :
           s.風險 === '中' ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.7)'
         )
@@ -2060,8 +2076,9 @@ function renderSupplierCharts() {
   });
 
   // Ranking Bar
-  const sorted = [...AppData.suppliers].sort((a, b) => (b.評分 || 0) - (a.評分 || 0)).slice(0, 8);
+  const sorted = [...filteredSuppliers].sort((a, b) => (b.評分 || 0) - (a.評分 || 0)).slice(0, 8);
   const rankCanvas = document.getElementById('chart-supplier-rank');
+  if (chartInstances['chart-supplier-rank']) { chartInstances['chart-supplier-rank'].destroy(); }
   chartInstances['chart-supplier-rank'] = new Chart(rankCanvas, {
     type: 'bar',
     data: {
@@ -2077,7 +2094,7 @@ function renderSupplierCharts() {
 
   // Suppliers Table
   const supTable = document.getElementById('table-suppliers');
-  supTable.innerHTML = AppData.suppliers.slice(0, 10).map(s => {
+  supTable.innerHTML = filteredSuppliers.slice(0, 10).map(s => {
     const riskBadge = s.風險 === '高' ? 'b-red' : s.風險 === '中' ? 'b-gold' : 'b-green';
     const ratingBadge = s.評級 === 'A' ? 'b-green' : s.評級 === 'B' ? 'b-blue' : s.評級 === 'C' ? 'b-gold' : 'b-red';
     return `<tr>
@@ -2095,13 +2112,15 @@ function renderSupplierCharts() {
 }
 
 function renderCostCharts() {
-  const totalAvoidance = AppData.savings.reduce((sum, d) => sum + (d.金額 || 0), 0);
+  const filteredSpend = getFilteredSpend();
+  const totalAvoidance = filteredSpend.reduce((sum, d) => sum + (d.金額 || 0), 0);
   document.getElementById('kpi-avoidance').textContent = formatCurrency(totalAvoidance);
   document.getElementById('kpi-ppv-detail').textContent = formatCurrency(Math.floor(Math.random() * 200000));
   document.getElementById('kpi-roi-detail').textContent = '420%';
 
   // Price Index
   const priceCanvas = document.getElementById('chart-price-index');
+  if (chartInstances['chart-price-index']) { chartInstances['chart-price-index'].destroy(); }
   chartInstances['chart-price-index'] = new Chart(priceCanvas, {
     type: 'line',
     data: {
@@ -2117,8 +2136,9 @@ function renderCostCharts() {
 
   // Savings Source
   const sourceSum = {};
-  AppData.savings.forEach(d => { sourceSum[d.來源] = (sourceSum[d.來源] || 0) + d.金額; });
+  filteredSpend.forEach(d => { sourceSum[d.品類] = (sourceSum[d.品類] || 0) + (d.金額 || 0); });
   const saveSrcCanvas = document.getElementById('chart-saving-source');
+  if (chartInstances['chart-saving-source']) { chartInstances['chart-saving-source'].destroy(); }
   chartInstances['chart-saving-source'] = new Chart(saveSrcCanvas, {
     type: 'pie',
     data: { labels: Object.keys(sourceSum), datasets: [{ data: Object.values(sourceSum), backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'] }] },
@@ -2128,6 +2148,7 @@ function renderCostCharts() {
   // Savings Trend
   const monthlySave = { '2025-01': 120000, '2025-02': 150000, '2025-03': 180000, '2025-04': 200000, '2025-05': 160000 };
   const saveTrendCanvas = document.getElementById('chart-saving-trend');
+  if (chartInstances['chart-saving-trend']) { chartInstances['chart-saving-trend'].destroy(); }
   chartInstances['chart-saving-trend'] = new Chart(saveTrendCanvas, {
     type: 'bar',
     data: {
@@ -2153,6 +2174,20 @@ function renderCostCharts() {
 }
 
 function renderQualityCharts() {
+  const { year, quarter } = AppData.filters;
+  const filteredQuality = AppData.quality.filter(d => {
+    if (!d.日期) return true;
+    const dataYear = d.日期.substring(0, 4);
+    const dataMonth = parseInt(d.日期.substring(5, 7));
+    let dataQuarter = 'Q1';
+    if (dataMonth > 3 && dataMonth <= 6) dataQuarter = 'Q2';
+    if (dataMonth > 6 && dataMonth <= 9) dataQuarter = 'Q3';
+    if (dataMonth > 9) dataQuarter = 'Q4';
+    const yearMatch = year === 'all' || dataYear === year;
+    const quarterMatch = quarter === 'all' || dataQuarter === quarter;
+    return yearMatch && quarterMatch;
+  });
+
   document.getElementById('kpi-iqa').textContent = '98.5%';
   document.getElementById('kpi-on-time').textContent = '94.2%';
   document.getElementById('kpi-dppm').textContent = '125 PPM';
@@ -2160,6 +2195,7 @@ function renderQualityCharts() {
 
   // SPC Chart
   const spcCanvas = document.getElementById('chart-quality-spc');
+  if (chartInstances['chart-quality-spc']) { chartInstances['chart-quality-spc'].destroy(); }
   const spcData = Array.from({ length: 20 }, (_, i) => 98 + (Math.random() - 0.5) * 4);
   chartInstances['chart-quality-spc'] = new Chart(spcCanvas, {
     type: 'line',
@@ -2176,8 +2212,9 @@ function renderQualityCharts() {
 
   // Defect Pie
   const defectCount = {};
-  AppData.quality.forEach(d => { defectCount[d.缺陷類型] = (defectCount[d.缺陷類型] || 0) + (d.數量 || 0); });
+  filteredQuality.forEach(d => { defectCount[d.缺陷類型] = (defectCount[d.缺陷類型] || 0) + (d.數量 || 0); });
   const defectCanvas = document.getElementById('chart-defect-pie');
+  if (chartInstances['chart-defect-pie']) { chartInstances['chart-defect-pie'].destroy(); }
   chartInstances['chart-defect-pie'] = new Chart(defectCanvas, {
     type: 'doughnut',
     data: { labels: Object.keys(defectCount), datasets: [{ data: Object.values(defectCount), backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#0ea5e9', '#10b981'] }] },
@@ -2186,7 +2223,7 @@ function renderQualityCharts() {
 
   // Quality Table
   const qualTable = document.getElementById('table-quality');
-  qualTable.innerHTML = AppData.quality.slice(0, 10).map(q => {
+  qualTable.innerHTML = filteredQuality.slice(0, 10).map(q => {
     const statusBadge = q.狀態 === '已完成' ? 'b-green' : q.狀態 === '處理中' ? 'b-gold' : 'b-red';
     return `<tr>
       <td>${q.日期}</td><td>${q.供應商}</td><td>${q.品項}</td><td>${q.缺陷類型}</td><td>${q.數量}</td>
@@ -2230,58 +2267,23 @@ function renderDeviationCharts() {
   }).join('');
 }
 
-function renderRiskCharts() {
-  document.getElementById('kpi-risk-sup').textContent = AppData.suppliers.filter(s => s.風險 === '高').length;
-  document.getElementById('kpi-risk-amount').textContent = '$2.4M';
-  document.getElementById('kpi-mitigation').textContent = '68%';
-
-  // Geo Risk
-  const geoCanvas = document.getElementById('chart-geo-risk');
-  chartInstances['chart-geo-risk'] = new Chart(geoCanvas, {
-    type: 'doughnut',
-    data: {
-      labels: ['台灣', '中國', '日本', '東南亞', '其他'],
-      datasets: [{ data: [45, 30, 15, 8, 2], backgroundColor: ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#94a3b8'] }]
-    },
-    options: getDonutOptions()
-  });
-
-  // Risk Events
-  const eventsDiv = document.getElementById('risk-events');
-  eventsDiv.innerHTML = `
-    <div class="alert-box"><div><div class="alert-title">供應商 A - 交期延誤風險</div><div class="alert-desc">可能被要求暫停出貨</div></div><span class="badge b-red">高</span></div>
-    <div class="alert-box warning"><div><div class="alert-title">原材料價格上漲</div><div class="alert-desc">鋁合金報價 +15%</div></div><span class="badge b-gold">中</span></div>
-    <div class="alert-box info"><div><div class="alert-title">供應商 C - ESG 評級下調</div><div class="alert-desc">環境合規問題</div></div><span class="badge b-blue">低</span></div>
-  `;
-
-  // Risk Table
-  const riskTable = document.getElementById('table-risk');
-  riskTable.innerHTML = AppData.suppliers.slice(0, 6).map(s => {
-    const riskIdx = s.風險 === '高' ? 85 : s.風險 === '中' ? 55 : 25;
-    const impact = s.風險 === '高' ? '高' : s.風險 === '中' ? '中' : '低';
-    const prob = s.風險 === '高' ? '高' : s.リスク === '中' ? '中' : '低';
-    return `<tr>
-      <td>${s.供應商}</td><td>供應中斷</td><td><span class="badge ${s.リスク === '高' ? 'b-red' : 'b-gold'}">${riskIdx}</span></td>
-      <td>${impact}</td><td>${prob}</td><td>尋找替代供應商</td><td><span class="badge b-gold">執行中</span></td>
-    </tr>`;
-  }).join('');
-}
-
 function renderESGCharts() {
   document.getElementById('kpi-esg-e').textContent = '76';
   document.getElementById('kpi-esg-s').textContent = '72';
   document.getElementById('kpi-esg-g').textContent = '81';
+
+  const filteredSuppliers = getFilteredSuppliers();
 
   // ESG Supplier
   const esgSupCanvas = document.getElementById('chart-esg-supplier');
   chartInstances['chart-esg-supplier'] = new Chart(esgSupCanvas, {
     type: 'bar',
     data: {
-      labels: AppData.esg.slice(0, 8).map(s => s.供應商.substring(0, 6)),
+      labels: filteredSuppliers.slice(0, 8).map(s => s.供應商.substring(0, 6)),
       datasets: [
-        { label: 'E', data: AppData.esg.slice(0, 8).map(s => s.E), backgroundColor: '#10b981' },
-        { label: 'S', data: AppData.esg.slice(0, 8).map(s => s.S), backgroundColor: '#0ea5e9' },
-        { label: 'G', data: AppData.esg.slice(0, 8).map(s => s.G), backgroundColor: '#6366f1' }
+        { label: 'E', data: filteredSuppliers.slice(0, 8).map(s => s.E || 70), backgroundColor: '#10b981' },
+        { label: 'S', data: filteredSuppliers.slice(0, 8).map(s => s.S || 65), backgroundColor: '#0ea5e9' },
+        { label: 'G', data: filteredSuppliers.slice(0, 8).map(s => s.G || 72), backgroundColor: '#6366f1' }
       ]
     },
     options: getBarOptions()
@@ -2302,19 +2304,20 @@ function renderESGCharts() {
 
   // ESG Table
   const esgTable = document.getElementById('table-esg');
-  esgTable.innerHTML = AppData.esg.slice(0, 8).map(e => {
+  esgTable.innerHTML = filteredSuppliers.slice(0, 8).map(e => {
     const ratingClass = e.評級 === 'A' ? 'b-green' : e.評級 === 'B' ? 'b-blue' : e.評級 === 'C' ? 'b-gold' : 'b-red';
     return `<tr>
-      <td>${e.供應商}</td><td>${e.E}</td><td>${e.S}</td><td>${e.G}</td><td>${e.總分}</td>
-      <td><span class="badge ${ratingClass}">${e.評級}</span></td><td>${e.建議}</td>
+      <td>${e.供應商}</td><td>${e.E || '-'}</td><td>${e.S || '-'}</td><td>${e.G || '-'}</td><td>${e.總分 || '-'}</td>
+      <td><span class="badge ${ratingClass}">${e.評級 || 'N/A'}</span></td><td>${e.建議 || '-'}</td>
     </tr>`;
   }).join('');
 }
 
 function renderContractCharts() {
-  const expiring = AppData.contracts.filter(c => c.狀態 === '30天內到期').length;
-  const expired = AppData.contracts.filter(c => c.狀態 === '已到期').length;
-  document.getElementById('kpi-contracts').textContent = AppData.contracts.length;
+  const filteredSpend = getFilteredSpend();
+  const expiring = filteredSpend.filter(c => c.狀態 === '30天內到期').length;
+  const expired = filteredSpend.filter(c => c.狀態 === '已到期').length;
+  document.getElementById('kpi-contracts').textContent = filteredSpend.length;
   document.getElementById('kpi-expiring').textContent = expiring;
   document.getElementById('kpi-expired').textContent = expired;
   document.getElementById('kpi-avg-life').textContent = '14 月';
@@ -2324,14 +2327,14 @@ function renderContractCharts() {
   chartInstances['chart-contract-timeline'] = new Chart(timelineCanvas, {
     type: 'bar',
     data: {
-      labels: AppData.contracts.map(c => c.供應商.substring(0, 6)),
+      labels: filteredSpend.map(c => c.供應商.substring(0, 6)),
       datasets: [{
         label: '剩餘天數',
-        data: AppData.contracts.map(c => {
+        data: filteredSpend.map(c => {
           const days = Math.floor((new Date(c.到期日) - new Date()) / (1000 * 60 * 60 * 24));
           return Math.max(0, days);
         }),
-        backgroundColor: AppData.contracts.map(c =>
+        backgroundColor: filteredSpend.map(c =>
           c.狀態 === '已到期' ? '#ef4444' : c.狀態 === '30天內到期' ? '#f59e0b' : '#10b981'
         )
       }]
@@ -2341,7 +2344,7 @@ function renderContractCharts() {
 
   // Contract Table
   const contTable = document.getElementById('table-contracts');
-  contTable.innerHTML = AppData.contracts.map(c => {
+  contTable.innerHTML = filteredSpend.map(c => {
     const statusClass = c.狀態 === '已到期' ? 'b-red' : c.狀態 === '30天內到期' ? 'b-gold' : 'b-green';
     return `<tr>
       <td>${c.合約編號}</td><td>${c.供應商}</td><td>${c.品類}</td><td>${c.簽約日}</td><td>${c.到期日}</td>
@@ -2421,15 +2424,12 @@ function updateSimulation() {
 
   updateSimulationDisplay();
 
-  // Update simulation insights
   const insights = document.getElementById('simulation-insights');
   insights.innerHTML = `
     <p><i class="fa-solid fa-lightbulb" style="color:var(--gold);margin-right:8px;"></i>
     <strong>情境分析：</strong>若價格上漲 ${price > 0 ? '+' : ''}${price}%，預估採購支出將增加約 ${(price * 0.8).toFixed(0)} 萬元。
     ${suppliers > 0 ? `供應商家數增加 ${suppliers}% 可能稀釋採購量，建議重新談判合約。<br>` : ''}
-    ${demand > 0 ? `需求增加 ${demand}% 需評估庫存準備，避免缺料風險。<br>` : ''}
-    <strong>建議：</strong>加強 ${price > 10 ? '成本談判' : '供應商關係維護'}，${demand > 10 ? '提前備貨' : '維持安全庫存'}。
-    </p>
+    ${demand > 0 ? `需求增加 ${demand}% 需評估庫存準備，避免缺料風險。<br>` : ''}</p>
   `;
 }
 
@@ -2455,23 +2455,57 @@ function resetSimulation() {
   updateSimulation();
 }
 
-function renderAlerts() {
-  const container = document.getElementById('alert-container');
-  const alerts = [
-    { type: 'critical', title: '供應商 A 風險評級升至 HIGH', desc: '需立即介入整改', badge: '緊急' },
-    { type: 'warning', title: '3 項物料庫存低於安全水位', desc: '請儘速補貨', badge: '警告' },
-    { type: 'info', title: 'Q4 成本節約目標達成率 92%', desc: '預計可超額完成', badge: '資訊' }
-  ];
+function renderRiskCharts() {
+  const filteredSuppliers = getFilteredSuppliers();
+  document.getElementById('kpi-risk-sup').textContent = filteredSuppliers.filter(s => s.風險 === '高').length;
+  document.getElementById('kpi-risk-amount').textContent = '$2.4M';
+  document.getElementById('kpi-mitigation').textContent = '68%';
 
-  container.innerHTML = alerts.map(a => `
-    <div class="alert-box ${a.type === 'warning' ? 'warning' : a.type === 'info' ? 'info' : ''}">
-      <div>
-        <div class="alert-title">${a.title}</div>
-        <div class="alert-desc">${a.desc}</div>
-      </div>
-      <span class="badge ${a.type === 'critical' ? 'b-red' : a.type === 'warning' ? 'b-gold' : 'b-blue'}">${a.badge}</span>
-    </div>
-  `).join('');
+  // Geo Risk
+  const geoCanvas = document.getElementById('chart-geo-risk');
+  if (chartInstances['chart-geo-risk']) { chartInstances['chart-geo-risk'].destroy(); }
+  chartInstances['chart-geo-risk'] = new Chart(geoCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['台灣', '中國', '日本', '東南亞', '其他'],
+      datasets: [{ data: [45, 30, 15, 8, 2], backgroundColor: ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#94a3b8'] }]
+    },
+    options: getDonutOptions()
+  });
+
+  // Risk Events
+  const eventsDiv = document.getElementById('risk-events');
+  eventsDiv.innerHTML = `
+    <div class="alert-box"><div><div class="alert-title">供應商 A - 交期延誤風險</div><div class="alert-desc">可能被要求暫停出貨</div></div><span class="badge b-red">高</span></div>
+    <div class="alert-box warning"><div><div class="alert-title">原材料價格上漲</div><div class="alert-desc">鋁合金報價 +15%</div></div><span class="badge b-gold">中</span></div>
+    <div class="alert-box info"><div><div class="alert-title">供應商 C - ESG 評級下調</div><div class="alert-desc">環境合規問題</div></div><span class="badge b-blue">低</span></div>
+  `;
+
+  // Risk Table
+  const riskTable = document.getElementById('table-risk');
+  riskTable.innerHTML = filteredSuppliers.slice(0, 6).map(s => {
+    const riskIdx = s.風險 === '高' ? 85 : s.風險 === '中' ? 55 : 25;
+    const impact = s.風險 === '高' ? '高' : s.風險 === '中' ? '中' : '低';
+    const prob = s.風險 === '高' ? '高' : s.風險 === '中' ? '中' : '低';
+    return `<tr>
+      <td>${s.供應商}</td><td>供應中斷</td><td><span class="badge ${s.風險 === '高' ? 'b-red' : 'b-gold'}">${riskIdx}</span></td>
+      <td>${impact}</td><td>${prob}</td><td>尋找替代供應商</td><td><span class="badge b-gold">執行中</span></td>
+    </tr>`;
+  }).join('');
+
+  // Carbon
+  const carbonCanvas = document.getElementById('chart-carbon');
+  if (chartInstances['chart-carbon']) { chartInstances['chart-carbon'].destroy(); }
+  chartInstances['chart-carbon'] = new Chart(carbonCanvas, {
+    type: 'line',
+    data: {
+      labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+      datasets: [
+        { label: 'Scope 3 排放', data: [120, 115, 118, 110, 108, 105], borderColor: '#10b981', tension: 0.4 }
+      ]
+    },
+    options: getLineOptions()
+  });
 }
 
 // ============================================================
@@ -2543,16 +2577,85 @@ function formatCurrency(val) {
   return '$' + val.toFixed(0);
 }
 
+// ============================================================
+// FILTER FUNCTIONS
+// ============================================================
+function getFilteredSuppliers() {
+  let result = AppData.suppliers || [];
+  const f = AppData.filters;
+  if (f.year && f.year !== 'all') {
+    result = result.filter(s => s.年份 == f.year || s.年份 === f.year);
+  }
+  if (f.quarter && f.quarter !== 'all') {
+    result = result.filter(s => s.季度 == f.quarter || s.季度 === f.quarter);
+  }
+  if (f.category && f.category !== 'all') {
+    result = result.filter(s => s.品類 === f.category);
+  }
+  return result;
+}
+
+function getFilteredSpend() {
+  let result = AppData.spend || [];
+  const f = AppData.filters;
+  if (f.year && f.year !== 'all') {
+    result = result.filter(d => d.日期 && d.日期.startsWith(f.year));
+  }
+  if (f.quarter && f.quarter !== 'all') {
+    const quarterMonths = { 'Q1': ['01','02','03'], 'Q2': ['04','05','06'], 'Q3': ['07','08','09'], 'Q4': ['10','11','12'] };
+    const months = quarterMonths[f.quarter] || [];
+    if (months.length > 0) {
+      result = result.filter(d => d.日期 && months.some(m => d.日期.includes('-' + m)));
+    }
+  }
+  if (f.category && f.category !== 'all') {
+    result = result.filter(d => d.品類 === f.category);
+  }
+  return result;
+}
+
 function updateDataStatus() {
   const dot = document.getElementById('status-dot');
   const text = document.getElementById('status-text');
+  if (!dot || !text) return;
   if (AppData.isDemo) {
     dot.className = 'data-status-dot demo';
     text.textContent = '範例資料';
   } else {
     dot.className = 'data-status-dot live';
-    text.textContent = `已更新: ${AppData.lastUpdate}`;
+    text.textContent = '即時資料 · ' + AppData.lastUpdate;
   }
+}
+
+function renderAlerts() {
+  const container = document.getElementById('alert-container');
+  if (!container) return;
+  const alerts = [];
+  const highRisk = (AppData.suppliers || []).filter(s => s.風險 === '高');
+  if (highRisk.length > 0) {
+    alerts.push(`<div class="alert-box"><div><div class="alert-title">${highRisk[0].供應商} - 高風險供應商</div><div class="alert-desc">建議優先審查交期與品質紀錄 (共 ${highRisk.length} 家)</div></div><span class="badge b-red">高</span></div>`);
+  }
+  const expiring = (AppData.contracts || []).filter(c => c.狀態 === '30天內到期');
+  if (expiring.length > 0) {
+    alerts.push(`<div class="alert-box warning"><div><div class="alert-title">合約即將到期 (${expiring.length} 件)</div><div class="alert-desc">請儘速啟動續約流程</div></div><span class="badge b-gold">中</span></div>`);
+  }
+  const expired = (AppData.contracts || []).filter(c => c.狀態 === '已到期');
+  if (expired.length > 0) {
+    alerts.push(`<div class="alert-box"><div><div class="alert-title">合約已到期 (${expired.length} 件)</div><div class="alert-desc">請立即處理續約或終止</div></div><span class="badge b-red">高</span></div>`);
+  }
+  if (alerts.length === 0) {
+    alerts.push(`<div class="alert-box info"><div><div class="alert-title">目前無異常警示</div><div class="alert-desc">所有指標在正常範圍內</div></div><span class="badge b-blue">正常</span></div>`);
+  }
+  container.innerHTML = alerts.join('');
+}
+
+function showDataCenter() {
+  nav('datacenter');
+}
+
+function toggleAIPanel() {
+  const panel = document.querySelector('.ai-panel');
+  if (panel) panel.classList.toggle('open');
 }
 
 function applyFilters() {
@@ -2563,7 +2666,7 @@ function applyFilters() {
 }
 
 // ============================================================
-// THEME TOGGLE（從 V5 補回，V6 重構時遺失）
+// THEME TOGGLE
 // ============================================================
 function toggleTheme() {
   const body = document.body;
@@ -2613,21 +2716,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Drag and drop for Data Center
 document.addEventListener('DOMContentLoaded', function() {
-  const uploadZone = document.getElementById('uploadZone');        
+  const uploadZone = document.getElementById('uploadZone');
   if (uploadZone) {
-    uploadZone.addEventListener('dragover', e => { 
-      e.preventDefault(); 
-      uploadZone.classList.add('dragover'); 
+    uploadZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
     });
-    uploadZone.addEventListener('dragleave', e => { 
-      uploadZone.classList.remove('dragover'); 
+    uploadZone.addEventListener('dragleave', e => {
+      uploadZone.classList.remove('dragover');
     });
     uploadZone.addEventListener('drop', e => {
       e.preventDefault();
       uploadZone.classList.remove('dragover');
       const file = e.dataTransfer.files[0];
       if (file) {
-        const input = document.getElementById('fileInput');        
+        const input = document.getElementById('fileInput');
         const dt = new DataTransfer();
         dt.items.add(file);
         input.files = dt.files;
@@ -2647,1042 +2750,104 @@ function showExportModal() {
     const id = page.id;
     container.innerHTML += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" class="export-page-cb" value="'+id+'" checked> '+title+'</label>';
   });
-
-  const isLightTheme = document.body.getAttribute('data-theme') === 'light';
-  const darkModeCb = document.getElementById('exp-dark-mode');
-  const themeFollowLabel = document.getElementById('exp-theme-follow-label');
-  if (darkModeCb) darkModeCb.checked = !isLightTheme;
-  if (themeFollowLabel) {
-    themeFollowLabel.title = isLightTheme ? '目前為亮色畫面，將匯出亮色 PDF' : '目前為深色畫面，將匯出深色 PDF';
-  }
-
   document.getElementById('exportModal').classList.add('show');
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-
-function exportScopeSelectAll(val) {
-  document.querySelectorAll('.export-page-cb').forEach(cb => cb.checked = val);
+function closeExportModal() {
+  document.getElementById('exportModal').classList.remove('show');
 }
 
-function proceedExportFromModal() {
-  const selected = [];
-  document.querySelectorAll('.export-page-cb').forEach(cb => {
-    if(cb.checked) selected.push(cb.value);
+function exportDashboard() {
+  const selectedPages = [];
+  document.querySelectorAll('.export-page-cb:checked').forEach(cb => {
+    selectedPages.push(cb.value);
   });
-  if(selected.length === 0) {
-    alert('至少需選擇一頁進行匯出');
+  if (selectedPages.length === 0) {
+    alert('請選擇至少一個頁面進行匯出');
     return;
   }
-  closeModal('exportModal');
 
-  const options = {
-    watermark: document.getElementById('exp-watermark').value.trim(),
-    addDate: document.getElementById('exp-add-date').checked,
-    portrait: document.getElementById('exp-portrait').checked,
-    highRes: document.getElementById('exp-high-res').checked
-  };
+  const exportContainer = document.createElement('div');
+  exportContainer.style.cssText = 'position:fixed;top:0;left:0;width:1200px;padding:40px;background:#1a1a2e;z-index:9999';
 
-  executePDFExport(selected, options);
+  selectedPages.forEach(pageId => {
+    const page = document.getElementById(pageId);
+    if (page) {
+      const clone = page.cloneNode(true);
+      exportContainer.appendChild(clone);
+    }
+  });
+
+  document.body.appendChild(exportContainer);
+
+  html2canvas(exportContainer, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#1a1a2e'
+  }).then(canvas => {
+    document.body.removeChild(exportContainer);
+    const link = document.createElement('a');
+    link.download = '採購分析報告_' + new Date().toISOString().slice(0,10) + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(err => {
+    document.body.removeChild(exportContainer);
+    console.error('Export failed:', err);
+    alert('匯出失敗: ' + err.message);
+  });
+
+  closeExportModal();
 }
 
-async function executePDFExport(pagesToExport, options) {
-  if (window._isExporting) return;
-  window._isExporting = true;
-
-  const useLight = document.body.getAttribute('data-theme') === 'light';
-  const activeNav = document.querySelector('.nav-item.active');
-  const activePageBeforeExport = activeNav ? activeNav.dataset.page : null;
-  const originalTheme = document.body.getAttribute('data-theme');
-
-  const originalAnimation = Chart.defaults.animation;
-  Chart.defaults.animation = false;
-
-  // loading overlay
-  const loadingOverlay = document.createElement('div');
-  loadingOverlay.id = 'pdf-loading-overlay';
-  loadingOverlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:999999; background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-size:24px; font-weight:bold;';
-  loadingOverlay.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:40px; margin-bottom:15px;"></i><p>正在產生高品質 PDF，請稍候⋯⋯</p>';
-  document.body.appendChild(loadingOverlay);
-
-  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-  try {
-    const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF)
-      ? window.jspdf.jsPDF
-      : (window.jsPDF || null);
-    if (!jsPDFCtor || typeof html2canvas === 'undefined') {
-      throw new Error('PDF 元件載入失敗（jsPDF/html2canvas）。請確認網路可連線 CDNs。');
-    }
-
-    const pdf = new jsPDFCtor({
-      unit: 'mm',
-      format: 'a4',
-      orientation: options.portrait ? 'portrait' : 'landscape'
-    });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 8;
-    const usableW = pageW - margin * 2;
-    const usableH = pageH - margin * 2;
-    const quality = options.highRes ? 1.0 : 0.9;
-    const scale = options.highRes ? 2 : 1.5;
-    let hasAnyPage = false;
-
-    const addCanvasToPdf = (canvas) => {
-      const srcW = canvas.width;
-      const srcH = canvas.height;
-      if (!srcW || !srcH) return;
-
-      const ratio = usableW / srcW;
-      const sliceHeightPx = Math.max(1, Math.floor(usableH / ratio));
-      let sy = 0;
-      while (sy < srcH) {
-        const sh = Math.min(sliceHeightPx, srcH - sy);
-        const slice = document.createElement('canvas');
-        slice.width = srcW;
-        slice.height = sh;
-        const sctx = slice.getContext('2d');
-        sctx.drawImage(canvas, 0, sy, srcW, sh, 0, 0, srcW, sh);
-        const img = slice.toDataURL('image/jpeg', quality);
-        if (hasAnyPage) pdf.addPage();
-        pdf.addImage(img, 'JPEG', margin, margin, usableW, sh * ratio);
-        hasAnyPage = true;
-        sy += sh;
-      }
-    };
-
-    for (let idx = 0; idx < pagesToExport.length; idx++) {
-      const pageId = pagesToExport[idx];
-      const pageName = pageId.replace('page-', '');
-
-      nav(pageName);
-      await sleep(200);
-
-      renderPageCharts(pageName);
-      await sleep(350);
-
-      const pageNode = document.getElementById(pageId);
-      if(!pageNode) continue;
-
-      const exportRoot = document.createElement('div');
-      exportRoot.style.cssText =
-        'position:fixed; left:0; top:0; width:1200px; z-index:-1; background:' +
-        (useLight ? '#f9f6f0' : '#0f172a') + '; color:' + (useLight ? '#33312e' : '#f8fafc') +
-        '; padding:16px; pointer-events:none;';
-
-      const exportStyle = document.createElement('style');
-      exportStyle.textContent = useLight ? `
-        #pdf-export-solid, #pdf-export-solid * { opacity: 1 !important; }
-        #pdf-export-solid { background: #f9f6f0 !important; color: #33312e !important; }
-        #pdf-export-solid .card, #pdf-export-solid .kpi-card, #pdf-export-solid .modal-content {
-          background: #ffffff !important; border-color: #d6d0c8 !important; box-shadow: none !important;
-        }
-        #pdf-export-solid th { background: #ece6d9 !important; color: #5f5953 !important; }
-        #pdf-export-solid td { color: #33312e !important; border-bottom-color: #d6d0c8 !important; }
-        #pdf-export-solid .badge, #pdf-export-solid .kpi-delta { opacity: 1 !important; }
-      ` : `
-        #pdf-export-solid, #pdf-export-solid * { opacity: 1 !important; }
-        #pdf-export-solid { background: #0f172a !important; color: #f8fafc !important; }
-        #pdf-export-solid .card, #pdf-export-solid .kpi-card, #pdf-export-solid .modal-content {
-          background: #1e293b !important; border-color: #3b4a63 !important; box-shadow: none !important;
-        }
-        #pdf-export-solid th { background: #2a364d !important; color: #cbd5e1 !important; }
-        #pdf-export-solid td { color: #f8fafc !important; border-bottom-color: #3b4a63 !important; }
-        #pdf-export-solid .badge, #pdf-export-solid .kpi-delta { opacity: 1 !important; }
-      `;
-      exportRoot.appendChild(exportStyle);
-
-      const header = document.createElement('div');
-      header.style.cssText = 'text-align:center; margin-bottom:12px; border-bottom:2px solid ' + (useLight ? '#5a67d8' : '#6366f1') + '; padding-bottom:8px;';
-      header.innerHTML = '<h3 style="margin:0 0 4px;">採購智能分析平台 - ' + pageName + '</h3>' +
-        (options.addDate ? '<div style="font-size:12px;opacity:.8;">匯出時間：' + new Date().toLocaleString('zh-TW') + '</div>' : '');
-      exportRoot.appendChild(header);
-
-      const clonePage = pageNode.cloneNode(true);
-      clonePage.classList.add('active');
-      clonePage.id = 'pdf-export-solid';
-      clonePage.style.cssText = 'display:block; opacity:1; transform:none; padding:0; margin:0; position:relative;';
-
-      const originalCanvases = pageNode.querySelectorAll('canvas');
-      const clonedCanvases = clonePage.querySelectorAll('canvas');
-      originalCanvases.forEach((canvas, i) => {
-        try {
-          const img = document.createElement('img');
-          img.src = canvas.toDataURL('image/png');
-          img.style.width = (canvas.offsetWidth || canvas.width || 400) + 'px';
-          img.style.height = (canvas.offsetHeight || canvas.height || 250) + 'px';
-          img.style.maxWidth = '100%';
-          img.style.display = 'block';
-          if (clonedCanvases[i] && clonedCanvases[i].parentNode) {
-            clonedCanvases[i].parentNode.replaceChild(img, clonedCanvases[i]);
-          }
-        } catch(e) { console.warn('Canvas 轉圖失敗:', e); }
-      });
-
-      if(options.watermark) {
-        const wm = document.createElement('div');
-        wm.innerText = options.watermark;
-        wm.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:80px; color:rgba(150,150,150,0.15); pointer-events:none; white-space:nowrap; z-index:9999;';
-        wm.className = 'pdf-watermark-overlay';
-        clonePage.style.overflow = 'hidden';
-        clonePage.appendChild(wm);
-      }
-      exportRoot.appendChild(clonePage);
-      document.body.appendChild(exportRoot);
-      await sleep(80);
-
-      const canvas = await html2canvas(exportRoot, {
-        scale: scale,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: useLight ? '#f9f6f0' : '#0f172a',
-        windowWidth: 1200,
-        scrollX: 0,
-        scrollY: 0
-      });
-
-      exportRoot.remove();
-
-      if (!canvas.width || !canvas.height) {
-        console.warn('PDF 匯出頁面尺寸異常:', pageId, canvas.width, canvas.height);
-        continue;
-      }
-
-      addCanvasToPdf(canvas);
-    }
-
-    if (!hasAnyPage) {
-      throw new Error('未成功擷取任何頁面內容（畫布皆為空）。');
-    }
-
-    pdf.save('Procurement_Report.pdf');
-  } catch(err) {
-      alert('匯出發生錯誤: ' + err.message);
-  } finally {
-    cleanupExport();
+// Excel export
+function exportExcel() {
+  const selectedPages = [];
+  document.querySelectorAll('.export-page-cb:checked').forEach(cb => {
+    selectedPages.push(cb.value);
+  });
+  if (selectedPages.length === 0) {
+    alert('請選擇至少一個頁面進行匯出');
+    return;
   }
 
-  function cleanupExport() {
-    if(loadingOverlay.parentNode) {
-      loadingOverlay.parentNode.removeChild(loadingOverlay);
-    }
-    document.querySelectorAll('.pdf-watermark-overlay').forEach(el => el.remove());
-    Chart.defaults.animation = originalAnimation;
-    window._isExporting = false;
+  const wb = XLSX.utils.book_new();
 
-    if (originalTheme === 'light') {
-      document.body.setAttribute('data-theme', 'light');
+  selectedPages.forEach(pageId => {
+    const page = document.getElementById(pageId);
+    if (!page) return;
+
+    const title = page.querySelector('.page-title')?.innerText || pageId;
+    const tables = page.querySelectorAll('table');
+
+    if (tables.length > 0) {
+      const wsData = [];
+      tables.forEach(table => {
+        const rows = table.querySelectorAll('tr');
+        rows.forEach(row => {
+          const rowData = [];
+          row.querySelectorAll('th, td').forEach(cell => {
+            rowData.push(cell.innerText.trim());
+          });
+          if (rowData.length > 0) wsData.push(rowData);
+        });
+      });
+      if (wsData.length > 0) {
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 31));
+      }
     } else {
-      document.body.removeAttribute('data-theme');
-    }
-
-    // 匯出完成後回到原本頁面並重繪
-    if (activePageBeforeExport) {
-      nav(activePageBeforeExport);
-    } else {
-      const currentActiveNav = document.querySelector('.nav-item.active');
-      if (currentActiveNav) renderPageCharts(currentActiveNav.dataset.page);
-    }
-  }
-}
-
-
-
-// ============================================================
-// AI 分析框架
-// ============================================================
-
-const AI_PROVIDERS = {
-  openai:      { name: 'OpenAI',     baseUrl: 'https://api.openai.com/v1',              models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-mini', 'o3-mini'],                                  apiFormat: 'openai' },
-  anthropic:   { name: 'Anthropic',  baseUrl: 'https://api.anthropic.com',              models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],                             apiFormat: 'anthropic' },
-  deepseek:    { name: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1',            models: ['deepseek-chat', 'deepseek-reasoner'],                                                            apiFormat: 'openai' },
-  minimax:     { name: 'MiniMax',    baseUrl: 'https://api.minimaxi.chat/v1',           models: ['MiniMax-M2.7', 'MiniMax-M2.5', 'MiniMax-M2.1'],                                                  apiFormat: 'openai' },
-  siliconflow: { name: '硅基流動',   baseUrl: 'https://api.siliconflow.cn/v1',          models: ['Qwen/Qwen2.5-72B-Instruct', 'deepseek-ai/DeepSeek-V3', 'THUDM/glm-4-9b-chat'],                  apiFormat: 'openai' },
-  openrouter:  { name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1',           models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4o', 'deepseek/deepseek-chat', 'google/gemini-2.5-flash'], apiFormat: 'openai' },
-  ollama:      { name: 'Ollama',     baseUrl: 'http://localhost:11434/v1',              models: ['llama3.3', 'qwen2.5:72b', 'deepseek-r1:70b', 'gemma3:27b'],                                      apiFormat: 'openai' },
-  custom:      { name: '自訂',       baseUrl: '',                                       models: [],                                                                                                apiFormat: 'openai' }
-};
-
-const SYSTEM_PROMPT = `你是一位資深的採購策略分析師，擁有深厚的供應鏈管理、成本控制、供應商評估與採購風險管理專業知識。
-你的任務是根據使用者提供的採購數據，提供深度洞察、風險識別與可行的改善建議。
-回應風格：專業、精煉、以數據支撐，使用繁體中文，善用條列式和表格整理關鍵資訊。`;
-
-const PAGE_QR = {
-  summary:    ['支出偏差的主要原因是什麼？', '哪些供應商風險需要優先處理？', '請提供三個立即可行的改善建議'],
-  spend:      ['哪個品類的支出成長最異常？', '請分析支出集中度風險', '如何優化尾端供應商支出？'],
-  supplier:   ['哪些供應商在 Kraljic 矩陣中需要優先管理？', '請評估供應商多元化程度', '如何改善評分最低的供應商？'],
-  cost:       ['PPV 超標的根本原因是什麼？', '請比較 Cost Avoidance 各項措施的效益', '如何提高採購 ROI？'],
-  quality:    ['缺陷率最高的供應商是誰？', '交付延遲的主要原因為何？', '如何建立供應商品質改善計畫？'],
-  deviation:  ['超採偏差最嚴重的品類是什麼？', '漏採缺口如何影響生產計畫？', '請提出偏差預防機制建議'],
-  risk:       ['地緣風險最高的供應來源在哪裡？', '請評估單一來源採購的風險', '如何建立供應鏈韌性？'],
-  esg:        ['ESG 評分最低的供應商需要哪些改善？', '如何將 ESG 指標納入供應商評選標準？', '碳排放減量的具體行動方案為何？'],
-  contract:   ['即將到期的合約需要優先談判哪些條款？', '如何降低合約違約風險？', '請分析合約覆蓋率對採購控制的影響'],
-  maturity:   ['採購成熟度評估的優先改善領域是什麼？', '如何在 12 個月內提升成熟度等級？', '業界標竿企業的採購能力有哪些值得學習？'],
-  simulation: ['最佳情境下的成本節約潛力是多少？', '哪個情境對供應鏈穩定性影響最大？', '請推薦最平衡的策略選項'],
-  datacenter: ['當前資料品質有哪些問題需要注意？', '資料完整性如何影響分析準確度？']
-};
-
-const AI_CFG_KEY = 'procDashAICfg_v61';
-let aiCfg = {
-  provider: 'openai', endpoint: 'https://api.openai.com/v1', apiKey: '',
-  model: 'gpt-4o-mini', temperature: 0.3, maxTokens: 4096,
-  useStream: true, useCorsProxy: false, apiFormat: 'openai',
-  savedKeys: {}, savedBaseUrls: {}
-};
-let aiHistory = [], aiStreaming = false, aiCurrentPage = 'summary', aiPanelInited = false;
-let toastTimer, aiAbortCtrl = null;
-
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function loadAICfg() {
-  try {
-    const s = localStorage.getItem(AI_CFG_KEY);
-    if (s) {
-      const parsed = JSON.parse(s);
-      if (parsed.savedKeys)     aiCfg.savedKeys     = parsed.savedKeys;
-      if (parsed.savedBaseUrls) aiCfg.savedBaseUrls = parsed.savedBaseUrls;
-      if (parsed.provider)      aiCfg.provider      = parsed.provider;
-      if (parsed.model)         aiCfg.model         = parsed.model;
-      if (parsed.temperature !== undefined) aiCfg.temperature = parsed.temperature;
-      if (parsed.useStream   !== undefined) aiCfg.useStream   = parsed.useStream;
-      if (parsed.useCorsProxy !== undefined) aiCfg.useCorsProxy = parsed.useCorsProxy;
-      if (parsed.apiFormat)     aiCfg.apiFormat     = parsed.apiFormat;
-      aiCfg.apiKey = aiCfg.savedKeys[aiCfg.provider] || '';
-    }
-  } catch(e) {}
-}
-
-function saveAICfgToStorage() { localStorage.setItem(AI_CFG_KEY, JSON.stringify(aiCfg)); }
-
-function openAIPanel(pageId) {
-  aiCurrentPage = pageId || (document.querySelector('.nav-item.active')?.dataset.page) || aiCurrentPage;
-  document.getElementById('aiPanel').classList.add('open');
-  const tag = document.getElementById('aiPageTag');
-  if (tag) tag.textContent = pageInfo[aiCurrentPage]?.title || aiCurrentPage;
-  updateAIProvLabel();
-  updateRoundLabel();
-  setAIStatus('ready');
-  updateAICtxBar();
-  if (!aiPanelInited) { loadAIInlineCfg(); restoreAIChat(); aiPanelInited = true; }
-}
-
-function closeAIPanel() { document.getElementById('aiPanel').classList.remove('open'); }
-
-function toggleAIPanel() {
-  const panel = document.getElementById('aiPanel');
-  if (panel.classList.contains('open')) { closeAIPanel(); }
-  else { openAIPanel(document.querySelector('.nav-item.active')?.dataset.page || 'summary'); }
-}
-
-function clearAIChat() {
-  aiHistory = [];
-  document.getElementById('aiBody').innerHTML = '';
-  updateRoundLabel(); saveAIChatCache(); updateTokenHint();
-}
-
-function updateRoundLabel() {
-  const el = document.getElementById('aiRoundLabel');
-  if (el) el.textContent = `${Math.floor(aiHistory.length / 2)} / 10 輪`;
-}
-
-function setAIStatus(state) {
-  const badge = document.getElementById('aiStatusBadge');
-  if (!badge) return;
-  const map = { idle: '● 閒置', ready: '● 就緒', busy: '⟳ 分析中', error: '● 錯誤' };
-  badge.className = `ai-status-badge ${state}`;
-  badge.textContent = map[state] || '● 就緒';
-}
-
-function updateAICtxBar() {
-  const el = document.getElementById('aiCtxPage');
-  if (el) el.textContent = pageInfo[aiCurrentPage]?.title || aiCurrentPage;
-}
-
-function updateAIProvLabel() {
-  const prov = AI_PROVIDERS[aiCfg.provider];
-  const el = document.getElementById('aiProvLabel');
-  if (el) el.textContent = (prov ? prov.name : 'Custom') + ' · ' + aiCfg.model;
-}
-
-// ── 建立頁面分析 Context ─────────────────────────────────────────────────
-function buildPageContext(pageId) {
-  const D    = AppData;
-  const spend     = Array.isArray(D.spend)     ? D.spend     : [];
-  const sups      = Array.isArray(D.suppliers) ? D.suppliers : [];
-  const savings   = Array.isArray(D.savings)   ? D.savings   : [];
-  const quality   = Array.isArray(D.quality)   ? D.quality   : [];
-  const plans     = Array.isArray(D.plans)     ? D.plans     : [];
-  const esg       = Array.isArray(D.esg)       ? D.esg       : [];
-  const contracts = Array.isArray(D.contracts) ? D.contracts : [];
-  const cfg       = D.config || {};
-  const isDemo    = D.isDemo;
-
-  const fmtN   = n => new Intl.NumberFormat('zh-TW').format(Math.round(n || 0));
-  const fmtPct = (a, b) => b ? ((a - b) / b * 100).toFixed(1) + '%' : '—';
-  const aggBy  = (arr, key, valKey) => arr.reduce((acc, r) => { const k = r[key] || '未知'; acc[k] = (acc[k] || 0) + (+r[valKey] || 0); return acc; }, {});
-  const top    = (map, n=5) => Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,v])=>`${k}:${fmtN(v)}`).join('、');
-
-  // ── 通用支出統計（欄位名：金額、供應商、品類）──────────────────
-  const totalSpend  = spend.reduce((s, r) => s + (+r['金額'] || 0), 0);
-  const catMap      = aggBy(spend, '品類', '金額');
-  const supSpendMap = aggBy(spend, '供應商', '金額');
-  const deptMap     = aggBy(spend, '部門', '金額');
-
-  // 月度趨勢
-  const moMap = {};
-  spend.forEach(r => { const m = (r['日期'] || '').slice(0, 7); if (m) moMap[m] = (moMap[m] || 0) + (+r['金額'] || 0); });
-  const moList = Object.entries(moMap).sort((a,b)=>a[0]>b[0]?1:-1).map(([m,v])=>`${m}:${fmtN(v)}`).join('、');
-
-  // 供應商集中度
-  const supSpendArr  = Object.values(supSpendMap);
-  const top1Share    = supSpendArr.length && totalSpend ? ((Math.max(...supSpendArr) / totalSpend) * 100).toFixed(1) : '—';
-  const top3Sum      = supSpendArr.sort((a,b)=>b-a).slice(0,3).reduce((s,v)=>s+v,0);
-  const top3Share    = totalSpend ? ((top3Sum / totalSpend) * 100).toFixed(1) : '—';
-
-  // 資料層 header
-  const dataLabel = isDemo ? '【⚠ 以下為範例展示數據，非真實採購資料】' : '【✅ 以下為實際匯入的採購資料】';
-
-  // ── 通用基礎摘要 ──────────────────────────────────────────────────
-  const base = `${dataLabel}
-【資料規模】支出明細 ${spend.length} 筆｜供應商主檔 ${sups.length} 家｜品質異常 ${quality.length} 筆｜合約 ${contracts.length} 份
-【支出合計】${fmtN(totalSpend)} 元
-【品類分布】${top(catMap) || '（無資料）'}
-【部門分布】${top(deptMap) || '（無資料）'}
-【供應商Top5支出】${top(supSpendMap) || '（無資料）'}
-【集中度風險】最大供應商佔比 ${top1Share}%｜前三大合計 ${top3Share}%
-【月度趨勢】${moList || '（無月份資料）'}`;
-
-  // ── 各頁面專屬 Context ────────────────────────────────────────────
-  const pageCtx = {
-
-    summary: (() => {
-      const highRisk   = sups.filter(s => s['風險'] === '高').map(s => s['供應商']).join('、') || '無';
-      const expiring   = contracts.filter(c => c['狀態'] !== '有效').map(c => `${c['供應商']}(${c['狀態']})`).join('、') || '無';
-      const totalSaved = savings.reduce((s, r) => s + (+r['金額'] || 0), 0);
-      return `\n【決策總覽專項數據】
-【供應商風險】高風險供應商：${highRisk}
-【合約預警】${expiring}
-【累計節約】${fmtN(totalSaved)} 元（共 ${savings.length} 項措施）
-【系統目標】節約目標:${fmtN(cfg.targetSavings)}｜準時交付目標:${cfg.targetOTD}%｜品質目標:${cfg.targetQuality}%`;
-    })(),
-
-    spend: (() => {
-      const byQtr = {};
-      spend.forEach(r => {
-        const m = parseInt((r['日期']||'').slice(5,7));
-        const q = isNaN(m) ? '未知' : `Q${Math.ceil(m/3)}`;
-        byQtr[q] = (byQtr[q]||0) + (+r['金額']||0);
-      });
-      return `\n【支出多維分析專項數據】
-【各季支出】${Object.entries(byQtr).sort().map(([q,v])=>`${q}:${fmtN(v)}`).join('、') || '—'}
-【品類完整分布】${Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${fmtN(v)}`).join('、') || '—'}
-【各部門採購】${Object.entries(deptMap).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${fmtN(v)}`).join('、') || '—'}`;
-    })(),
-
-    supplier: (() => {
-      const avgScore = sups.length ? (sups.reduce((s,r)=>(s + (+r['評分']||0)),0)/sups.length).toFixed(1) : '—';
-      const avgOTD   = sups.length ? (sups.reduce((s,r)=>(s + (+r['準時率']||0)),0)/sups.length).toFixed(1) : '—';
-      const avgQual  = sups.length ? (sups.reduce((s,r)=>(s + (+r['合格率']||0)),0)/sups.length).toFixed(1) : '—';
-      const riskDist = { 高:0, 中:0, 低:0 };
-      sups.forEach(s => { const r = s['風險']||'中'; riskDist[r] = (riskDist[r]||0)+1; });
-      const supDetails = sups.map(s=>`${s['供應商']}(評分:${s['評分']}|準時:${s['準時率']}%|合格:${s['合格率']}%|風險:${s['風險']}|ESG:${s['ESG']})`).join('\n  ');
-      return `\n【供應商績效專項數據】
-【整體均值】平均評分:${avgScore}｜平均準時率:${avgOTD}%｜平均合格率:${avgQual}%
-【風險分布】高風險:${riskDist['高']}家｜中風險:${riskDist['中']}家｜低風險:${riskDist['低']}家
-【供應商明細】
-  ${supDetails}`;
-    })(),
-
-    cost: (() => {
-      const totalSaved = savings.reduce((s,r)=>(s+(+r['金額']||0)),0);
-      const byType = aggBy(savings,'類型','金額');
-      return `\n【成本節約專項數據】
-【累計節約總額】${fmtN(totalSaved)} 元（目標 ${fmtN(cfg.targetSavings)} 元，達成率 ${cfg.targetSavings?(totalSaved/cfg.targetSavings*100).toFixed(1):'—'}%）
-【節約項目明細】${savings.map(r=>`${r['類型']}:${fmtN(r['金額'])}(${r['來源']})`).join('、') || '無'}
-【各類型小計】${Object.entries(byType).map(([k,v])=>`${k}:${fmtN(v)}`).join('、') || '—'}`;
-    })(),
-
-    quality: (() => {
-      const defectBySup = aggBy(quality,'供應商','數量');
-      const defectByType= aggBy(quality,'缺陷類型','數量');
-      const pending     = quality.filter(r=>r['狀態']==='待處理').length;
-      const avgOTD      = sups.length ? (sups.reduce((s,r)=>(s+(+r['準時率']||0)),0)/sups.length).toFixed(1) : '—';
-      return `\n【品質追蹤專項數據】
-【品質異常總筆數】${quality.length} 筆｜待處理 ${pending} 筆
-【各供應商缺陷數量】${Object.entries(defectBySup).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}件`).join('、') || '—'}
-【缺陷類型分布】${Object.entries(defectByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}件`).join('、') || '—'}
-【整體平均準時率】${avgOTD}%（目標 ${cfg.targetOTD||95}%）`;
-    })(),
-
-    deviation: (() => {
-      const deviations = plans.map(r => {
-        const plan=+r['計劃量']||0, actual=+r['實際量']||0;
-        const diff=actual-plan, pct=plan?(diff/plan*100).toFixed(1):'—';
-        return `${r['品類']}:計畫${fmtN(plan)}/實際${fmtN(actual)}/差異${diff>=0?'+':''}${fmtN(diff)}(${pct}%)`;
-      });
-      const overBought = plans.filter(r=>(+r['實際量']||0)>(+r['計劃量']||0));
-      const underBought= plans.filter(r=>(+r['實際量']||0)<(+r['計劃量']||0));
-      return `\n【計畫偏差專項數據】
-【品類執行情況】\n  ${deviations.join('\n  ') || '（無資料）'}
-【超採品類】${overBought.map(r=>r['品類']).join('、') || '無'}
-【漏採品類】${underBought.map(r=>r['品類']).join('、') || '無'}`;
-    })(),
-
-    risk: (() => {
-      const highRisk = sups.filter(s=>s['風險']==='高');
-      const expiring = contracts.filter(c=>c['狀態']!=='有效');
-      const riskList = highRisk.map(s=>`${s['供應商']}(品類:${s['品類']}|評分:${s['評分']})`).join('\n  ');
-      return `\n【風險管控專項數據】
-【高風險供應商】${highRisk.length} 家：\n  ${riskList || '無'}
-【集中度風險】單一供應商最高佔比 ${top1Share}%｜前三大佔比 ${top3Share}%
-【合約到期風險】${expiring.length} 份異常合約：${expiring.map(c=>`${c['供應商']}(${c['狀態']},到期:${c['到期日']})`).join('、') || '無'}`;
-    })(),
-
-    esg: (() => {
-      const avgE = esg.length ? (esg.reduce((s,r)=>(s+(+r['E']||0)),0)/esg.length).toFixed(1) : '—';
-      const avgS = esg.length ? (esg.reduce((s,r)=>(s+(+r['S']||0)),0)/esg.length).toFixed(1) : '—';
-      const avgG = esg.length ? (esg.reduce((s,r)=>(s+(+r['G']||0)),0)/esg.length).toFixed(1) : '—';
-      const lowESG = esg.filter(r=>(+r['總分']||0)<60).map(r=>r['供應商']).join('、');
-      const esgList = [...esg].sort((a,b)=>(+b['總分']||0)-(+a['總分']||0)).map(r=>`${r['供應商']}(E:${r['E']}|S:${r['S']}|G:${r['G']}|總分:${r['總分']}|評級:${r['評級']})`).join('\n  ');
-      return `\n【ESG 評核專項數據】
-【整體均分】E(環境):${avgE}｜S(社會):${avgS}｜G(治理):${avgG}
-【低分供應商（<60）】${lowESG || '無'}
-【供應商 ESG 明細】\n  ${esgList}`;
-    })(),
-
-    contract: (() => {
-      const valid    = contracts.filter(c=>c['狀態']==='有效');
-      const soon     = contracts.filter(c=>c['狀態']==='30天內到期');
-      const expired  = contracts.filter(c=>c['狀態']==='已到期');
-      const totalVal = contracts.reduce((s,r)=>(s+(+r['金額']||0)),0);
-      const ctList   = contracts.map(r=>`${r['合約編號']}|${r['供應商']}|${r['到期日']}|${r['狀態']}|${fmtN(r['金額'])}`).join('\n  ');
-      return `\n【合約管理專項數據】
-【合約概況】有效 ${valid.length} 份｜30天內到期 ${soon.length} 份｜已到期 ${expired.length} 份
-【合約總金額】${fmtN(totalVal)} 元
-【需立即處理】${[...soon,...expired].map(c=>`${c['供應商']}(${c['狀態']},到期:${c['到期日']})`).join('、') || '無'}
-【合約明細】\n  ${ctList}`;
-    })(),
-
-    maturity: (() => `\n【採購成熟度評估頁】
-【當前資料規模】支出明細 ${spend.length} 筆｜供應商 ${sups.length} 家｜合約 ${contracts.length} 份｜成本節約 ${savings.length} 項
-【可評估維度】戰略採購能力、供應商管理深度、數據分析成熟度、風險管理機制、ESG 整合程度
-請根據上述資料規模與可見指標，對各維度進行成熟度診斷並提出改善路徑。`)(),
-
-    simulation: (() => {
-      const totalSaved = savings.reduce((s,r)=>(s+(+r['金額']||0)),0);
-      const planTotal  = plans.reduce((s,r)=>(s+(+r['計劃量']||0)),0);
-      return `\n【情境模擬專項數據】
-【基準數據】支出總計 ${fmtN(totalSpend)} 元｜計畫採購 ${fmtN(planTotal)} 元｜累計節約 ${fmtN(totalSaved)} 元
-【品類支出】${Object.entries(catMap).map(([k,v])=>`${k}:${fmtN(v)}`).join('、')}
-請模擬以下情境對採購成本與風險的影響：情境A(成本優化-5%)、情境B(供應商整合)、情境C(風險規避)。`;
-    })(),
-
-    datacenter: (() => `\n【資料管理頁】
-【當前資料狀態】${isDemo ? '⚠ 範例資料（尚未匯入真實資料）' : '✅ 已匯入真實資料'}
-【各表筆數】支出明細:${spend.length}｜供應商主檔:${sups.length}｜品質異常:${quality.length}｜成本節約:${savings.length}｜計畫執行:${plans.length}｜ESG:${esg.length}｜合約:${contracts.length}
-請評估資料完整性、欄位覆蓋率，以及對各分析頁面準確度的影響。`)()
-  };
-
-  return base + (pageCtx[pageId] || `\n（${pageInfo[pageId]?.title || pageId} 頁面）`);
-}
-
-// ── 主要觸發 ──────────────────────────────────────────────────────────────
-async function triggerAI(pageId) {
-  if (!aiCfg.apiKey) { openAIPanel(pageId); showToast('⚠️ 請先在設定欄填入 API Key 並儲存', 'err'); return; }
-  openAIPanel(pageId);
-  clearAIChat();
-  setAIStatus('busy');
-
-  const ctx = buildPageContext(pageId);
-  const userMsg = `請分析以下【${pageInfo[pageId]?.title || pageId}】頁面的採購數據，給出專業洞察與建議。\n\n${ctx}`;
-
-  addAIMessage('user', userMsg, true);
-  const loadId = addAILoading();
-  aiHistory.push({ role: 'user', content: userMsg });
-  setupQuickReplies(pageId);
-
-  await callAI(
-    [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userMsg }],
-    (chunk) => { appendToLoading(loadId, chunk); },
-    (full)  => { finalizeLoading(loadId, full); aiHistory.push({ role: 'assistant', content: full }); updateRoundLabel(); setupQuickReplies(pageId); },
-    (err)   => { replaceLoading(loadId, '❌ 錯誤：' + escHtml(err)); setAIStatus('error'); }
-  );
-}
-
-function triggerPageAIFromPanel() { triggerAI(aiCurrentPage); }
-
-function sendQuickWithCtx(text) {
-  const input = document.getElementById('aiInput');
-  if (input) { input.value = text; sendFollowup(); }
-}
-
-// ── Core Dispatcher ───────────────────────────────────────────────────────
-async function callAI(messages, onChunk, onDone, onError) {
-  if (aiStreaming) { showToast('AI 正在回應中…', 'info'); return; }
-  aiStreaming = true;
-  aiAbortCtrl = new AbortController();
-  const sendBtn = document.getElementById('aiSendBtn');
-  const stopBtn = document.getElementById('aiStopBtn');
-  if (sendBtn) sendBtn.disabled = true;
-  if (stopBtn) stopBtn.style.display = 'inline-flex';
-  setAIStatus('busy');
-
-  try {
-    const isAnthropic = aiCfg.provider === 'anthropic' || (aiCfg.provider === 'custom' && aiCfg.apiFormat === 'anthropic');
-    if (isAnthropic) { await _callAnthropic(messages, onChunk, onDone, onError); }
-    else             { await _callOpenAI(messages, onChunk, onDone, onError); }
-  } catch (err) {
-    if (err.name === 'AbortError') { onError('已停止'); setAIStatus('idle'); }
-    else { onError(err.message); setAIStatus('error'); }
-  } finally {
-    aiStreaming = false; aiAbortCtrl = null;
-    if (sendBtn) sendBtn.disabled = false;
-    if (stopBtn) stopBtn.style.display = 'none';
-  }
-}
-
-function stopAI() { if (aiAbortCtrl) aiAbortCtrl.abort(); }
-
-async function _callOpenAI(messages, onChunk, onDone, onError) {
-  const p = aiCfg.provider;
-  const useCustomUrl = p === 'custom' || p === 'openrouter' || p === 'ollama' || p === 'siliconflow';
-  const baseUrl = useCustomUrl ? (aiCfg.savedBaseUrls[p] || aiCfg.endpoint || AI_PROVIDERS[p]?.baseUrl || '') : AI_PROVIDERS[p].baseUrl;
-  let fetchUrl = `${baseUrl.replace(/\/+$/,'')}/chat/completions`;
-  if (aiCfg.useCorsProxy) fetchUrl = `http://localhost:8080/proxy?url=${encodeURIComponent(fetchUrl)}`;
-
-  const bodyObj = { model: aiCfg.model, messages, temperature: aiCfg.temperature, max_tokens: aiCfg.maxTokens || 4096, stream: aiCfg.useStream };
-  if (p === 'minimax') bodyObj.reasoning_split = true;
-
-  const resp = await fetch(fetchUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiCfg.apiKey}` },
-    body: JSON.stringify(bodyObj), signal: aiAbortCtrl?.signal
-  });
-  if (!resp.ok) { const t = await resp.text(); throw new Error(`HTTP ${resp.status}: ${t.slice(0,200)}`); }
-
-  if (aiCfg.useStream) {
-    const reader = resp.body.getReader(), decoder = new TextDecoder();
-    let buf = '', full = '', thought = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n'); buf = lines.pop();
-      for (const line of lines) {
-        const clean = line.trim();
-        if (!clean.startsWith('data: ')) continue;
-        const data = clean.slice(6);
-        if (data === '[DONE]') break;
-        try {
-          const json = JSON.parse(data), delta = json.choices?.[0]?.delta;
-          if (!delta) continue;
-          const r_content = delta.reasoning_content || delta.reasoning || '';
-          const content = delta.content || '';
-          if (r_content) { thought += r_content; onChunk({ thought, content: full }); }
-          if (content)   { full += content;      onChunk({ thought, content: full }); }
-        } catch(e) {}
+      const charts = page.querySelectorAll('canvas');
+      if (charts.length > 0) {
+        const wsData = [['圖表資料'], ['此頁面包含圖表，請參考 PNG 匯出']];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 31));
       }
     }
-    onDone(thought ? `<thought>${thought}</thought>\n${full}` : full);
-  } else {
-    const json = await resp.json(), msg = json.choices?.[0]?.message;
-    const th = msg?.reasoning_content || msg?.reasoning || '';
-    const ct = msg?.content || '';
-    onDone(th ? `<thought>${th}</thought>\n${ct}` : ct);
-  }
-}
-
-async function _callAnthropic(messages, onChunk, onDone, onError) {
-  const baseUrl = aiCfg.provider === 'anthropic' ? AI_PROVIDERS.anthropic.baseUrl : aiCfg.endpoint;
-  let fetchUrl = `${baseUrl}/v1/messages`;
-  if (aiCfg.useCorsProxy) fetchUrl = `http://localhost:8080/proxy?url=${encodeURIComponent(fetchUrl)}`;
-
-  const sysMsg  = messages.find(m => m.role === 'system')?.content || '';
-  const userMsgs = messages.filter(m => m.role !== 'system');
-
-  const resp = await fetch(fetchUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': aiCfg.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: aiCfg.model, system: sysMsg, messages: userMsgs, temperature: aiCfg.temperature, max_tokens: aiCfg.maxTokens || 4096, stream: aiCfg.useStream }),
-    signal: aiAbortCtrl?.signal
   });
-  if (!resp.ok) { const t = await resp.text(); throw new Error(`Anthropic ${resp.status}: ${t.slice(0,200)}`); }
 
-  if (aiCfg.useStream) {
-    const reader = resp.body.getReader(), decoder = new TextDecoder();
-    let full = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data:')) continue;
-        const raw = line.slice(5).trim();
-        if (!raw || raw === '[DONE]') continue;
-        try { const ev = JSON.parse(raw); if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { full += ev.delta.text; onChunk({ thought:'', content: full }); } } catch(e) {}
-      }
-    }
-    onDone(full);
-  } else {
-    const data = await resp.json();
-    onDone(data.content?.[0]?.text || '');
-  }
+  XLSX.writeFile(wb, '採購分析報告_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  closeExportModal();
 }
-
-// ── Message UI ────────────────────────────────────────────────────────────
-function addAIMessage(role, content, hideContent = false) {
-  const body = document.getElementById('aiBody');
-  const div = document.createElement('div');
-  div.className = `ai-msg ${role}`;
-  const roleLabel = role === 'user' ? '🧑 你' : '🤖 AI 採購分析師';
-  const displayContent = hideContent ? '📋 分析採購數據中…' : renderMarkdownAI(content);
-  div.innerHTML = `<div class="ai-msg-role">${roleLabel}</div><div class="ai-msg-bubble ai-md">${displayContent}</div>`;
-  body.appendChild(div);
-  body.scrollTop = body.scrollHeight;
-  return div;
-}
-
-function addAILoading() {
-  const body = document.getElementById('aiBody');
-  const id = 'aiLoad_' + Date.now();
-  const div = document.createElement('div');
-  div.className = 'ai-msg assistant'; div.id = id;
-  div.innerHTML = `<div class="ai-msg-role">🤖 AI 採購分析師</div><div class="ai-msg-bubble ai-md"><div class="ai-dots"><span></span><span></span><span></span></div></div>`;
-  body.appendChild(div); body.scrollTop = body.scrollHeight;
-  return id;
-}
-
-function appendToLoading(id, data) {
-  const el = document.getElementById(id); if (!el) return;
-  const bubble = el.querySelector('.ai-msg-bubble'); if (!bubble) return;
-  if (bubble.querySelector('.ai-dots')) bubble.innerHTML = '<span class="ai-stream-text"></span>';
-  const span = bubble.querySelector('.ai-stream-text');
-  if (span) {
-    const content = typeof data === 'string' ? data : (data.thought ? `<thought>${data.thought}</thought>\n${data.content}` : data.content);
-    span.innerHTML = renderMarkdownAI(content);
-    document.getElementById('aiBody').scrollTop = document.getElementById('aiBody').scrollHeight;
-  }
-}
-
-function finalizeLoading(id, fullText) {
-  const el = document.getElementById(id); if (!el) return;
-  const bubble = el.querySelector('.ai-msg-bubble');
-  if (bubble) bubble.innerHTML = renderMarkdownAI(fullText);
-  document.getElementById('aiBody').scrollTop = document.getElementById('aiBody').scrollHeight;
-  saveAIChatCache(); updateTokenHint(); setAIStatus('ready');
-}
-
-function replaceLoading(id, errHtml) {
-  const el = document.getElementById(id); if (!el) return;
-  const bubble = el.querySelector('.ai-msg-bubble');
-  if (bubble) bubble.innerHTML = errHtml;
-}
-
-// ── Follow-up ─────────────────────────────────────────────────────────────
-async function sendFollowup() {
-  const input = document.getElementById('aiInput');
-  const text = input.value.trim();
-  if (!text || aiStreaming) return;
-  if (!aiCfg.apiKey) { showToast('⚠️ 請先在設定欄填入 API Key 並儲存', 'err'); return; }
-  if (aiHistory.length >= 20) { showToast('已達對話上限（10輪），請點「清除對話」重新開始', 'info'); return; }
-
-  input.value = ''; input.style.height = 'auto';
-  addAIMessage('user', text);
-  aiHistory.push({ role: 'user', content: text });
-  setAIStatus('busy'); updateTokenHint();
-
-  const loadId = addAILoading();
-  const msgs = [{ role: 'system', content: SYSTEM_PROMPT }, ...aiHistory.slice(-10)];
-
-  await callAI(msgs,
-    (data) => { appendToLoading(loadId, data); },
-    (full) => { finalizeLoading(loadId, full); aiHistory.push({ role: 'assistant', content: full }); updateRoundLabel(); saveAIChatCache(); },
-    (err)  => { replaceLoading(loadId, '❌ 錯誤：' + escHtml(err)); setAIStatus('error'); }
-  );
-}
-
-function sendQuickReply(text) {
-  const input = document.getElementById('aiInput');
-  input.value = text; sendFollowup();
-  document.querySelectorAll('.ai-qr').forEach(el => el.remove());
-}
-
-function setupQuickReplies(pageId) {
-  document.querySelectorAll('.ai-qr').forEach(el => el.remove());
-  const qrs = PAGE_QR[pageId]; if (!qrs) return;
-  const body = document.getElementById('aiBody');
-  const div = document.createElement('div'); div.className = 'ai-qr';
-  div.innerHTML = qrs.map(q => `<button class="ai-qr-btn" onclick="sendQuickReply('${escHtml(q).replace(/'/g,"\\'")}'">${escHtml(q)}</button>`).join('');
-  body.appendChild(div); body.scrollTop = body.scrollHeight;
-}
-
-// ── Markdown renderer ──────────────────────────────────────────────────────
-function renderMarkdownAI(text) {
-  if (!text) return '';
-  let html = text.replace(/<thought>([\s\S]*?)<\/thought>/g, (_, content) => {
-    return `<div class="ai-thought"><div class="ai-thought-hd">💭 思考過程</div><div class="ai-thought-bd">${content.trim()}</div></div>`;
-  });
-  const thoughts = [];
-  html = html.replace(/<div class="ai-thought">[\s\S]*?<\/div><\/div>/g, m => { thoughts.push(m); return `%%T_${thoughts.length-1}%%`; });
-
-  let t = html
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/^---+$/gm, '<hr>')
-    .replace(/^[*-] (.+)$/gm, '<li>$1</li>').replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    .replace(/【([^】]+)】/g, '<span class="ai-tag">【$1】</span>')
-    .replace(/(⚠️[^\n<]*)/g, '<span class="ai-warn">$1</span>');
-
-  t = t.replace(/((?:<li>[^<]*<\/li>\s*)+)/g, '<ul>$1</ul>');
-  t = t.replace(/(?:^\|.+\|\s*\n)+/gm, block => {
-    const rows = block.trim().split('\n'); let h = '<table>', first = true;
-    rows.forEach(r => { if (/^\|[\s:-]+\|/.test(r)) return; const c = r.split('|').filter((_,i,a)=>i>0&&i<a.length-1); h += first ? '<tr>'+c.map(x=>`<th>${x.trim()}</th>`).join('')+'</tr>' : '<tr>'+c.map(x=>`<td>${x.trim()}</td>`).join('')+'</tr>'; first=false; }); return h+'</table>';
-  });
-  t = t.replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>');
-  t = '<p>' + t + '</p>';
-  thoughts.forEach((tr,i) => { t = t.replace(`%%T_${i}%%`, tr); });
-  return t;
-}
-
-// ── Inline Config ──────────────────────────────────────────────────────────
-function toggleAICfgSection() {
-  const body = document.getElementById('aiCfgBody'), arrow = document.getElementById('aiCfgArrow');
-  if (!body) return;
-  const collapsed = body.classList.toggle('collapsed');
-  if (arrow) arrow.classList.toggle('collapsed', collapsed);
-}
-
-function onProvInlineChange() {
-  const sel = document.getElementById('aiProvInline'); if (!sel) return;
-  const id = sel.value;
-  const urlRow = document.getElementById('aiInlineUrlRow'), fmtRow = document.getElementById('aiInlineFmtRow');
-  if (urlRow) urlRow.style.display = (['custom','openrouter','ollama','siliconflow'].includes(id)) ? 'flex' : 'none';
-  if (fmtRow) fmtRow.style.display = (id === 'custom') ? 'flex' : 'none';
-  updateInlineModelOptions(id);
-  const keyEl = document.getElementById('aiKeyInline'); if (keyEl) keyEl.value = aiCfg.savedKeys[id] || '';
-  const urlEl = document.getElementById('aiInlineUrl'); if (urlEl) urlEl.value = aiCfg.savedBaseUrls[id] || AI_PROVIDERS[id]?.baseUrl || '';
-}
-
-function updateInlineModelOptions(providerId) {
-  const container = document.getElementById('aiModelInline'); if (!container) return;
-  const prov = AI_PROVIDERS[providerId];
-  if (!prov || !prov.models || !prov.models.length) {
-    const inp = document.createElement('input'); inp.type='text'; inp.id='aiModelInline'; inp.placeholder='請輸入模型名稱'; inp.value=aiCfg.model||'';
-    container.replaceWith ? container.replaceWith(inp) : (container.outerHTML = inp.outerHTML); return;
-  }
-  if (container.tagName === 'SELECT') { container.innerHTML = prov.models.map(m=>`<option value="${m}"${m===aiCfg.model?' selected':''}>${m}</option>`).join(''); }
-  else { const sel = document.createElement('select'); sel.id='aiModelInline'; sel.innerHTML=prov.models.map(m=>`<option value="${m}"${m===aiCfg.model?' selected':''}>${m}</option>`).join(''); container.replaceWith(sel); }
-}
-
-function toggleInlineKeyVis() { const inp = document.getElementById('aiKeyInline'); if (inp) inp.type = inp.type==='password'?'text':'password'; }
-function toggleInlineAdv() { const body=document.getElementById('aiInlineAdv'),arrow=document.getElementById('aiAdvArrow'); if(!body)return; const open=body.style.display==='block'; body.style.display=open?'none':'block'; if(arrow)arrow.textContent=open?'▸':'▾'; }
-
-function saveAIInlineCfg() {
-  const provSel=document.getElementById('aiProvInline'), keyEl=document.getElementById('aiKeyInline'),
-        modelEl=document.getElementById('aiModelInline'), urlEl=document.getElementById('aiInlineUrl'),
-        tempEl=document.getElementById('aiTempInline'), maxTokEl=document.getElementById('aiMaxTokInline'),
-        streamEl=document.getElementById('aiStreamInline'), proxyEl=document.getElementById('aiProxyInline'),
-        fmtEl=document.getElementById('aiFmtInline');
-  if (provSel) aiCfg.provider = provSel.value;
-  if (keyEl && keyEl.value.trim()) { aiCfg.apiKey = keyEl.value.trim(); aiCfg.savedKeys[aiCfg.provider] = aiCfg.apiKey; }
-  if (modelEl) aiCfg.model = modelEl.value.trim();
-  if (urlEl && urlEl.value.trim()) { aiCfg.endpoint = urlEl.value.trim(); aiCfg.savedBaseUrls[aiCfg.provider] = aiCfg.endpoint; }
-  if (tempEl) aiCfg.temperature = parseFloat(tempEl.value) || 0.3;
-  if (maxTokEl) aiCfg.maxTokens = parseInt(maxTokEl.value) || 4096;
-  if (streamEl) aiCfg.useStream = streamEl.checked;
-  if (proxyEl) aiCfg.useCorsProxy = proxyEl.value === '1';
-  if (fmtEl) aiCfg.apiFormat = fmtEl.value;
-  saveAICfgToStorage(); updateAIProvLabel(); showToast('✅ AI 設定已儲存', 'ok');
-}
-
-function clearAISavedCfg() {
-  if (!confirm('確定清除所有已儲存的 API Key 與設定？')) return;
-  aiCfg.savedKeys = {}; aiCfg.savedBaseUrls = {}; aiCfg.apiKey = '';
-  saveAICfgToStorage(); localStorage.removeItem(AI_CFG_KEY + '_chat');
-  showToast('🗑 設定已清除', 'info');
-}
-
-function loadAIInlineCfg() {
-  const provSel = document.getElementById('aiProvInline');
-  if (provSel) { provSel.value = aiCfg.provider || 'openai'; onProvInlineChange(); }
-  const keyEl = document.getElementById('aiKeyInline'); if (keyEl) keyEl.value = aiCfg.savedKeys[aiCfg.provider] || aiCfg.apiKey || '';
-  const modelEl = document.getElementById('aiModelInline'); if (modelEl) modelEl.value = aiCfg.model || '';
-  const tempEl = document.getElementById('aiTempInline'); if (tempEl) tempEl.value = aiCfg.temperature ?? 0.3;
-  const maxTokEl = document.getElementById('aiMaxTokInline'); if (maxTokEl) maxTokEl.value = aiCfg.maxTokens || 4096;
-  const streamEl = document.getElementById('aiStreamInline'); if (streamEl) streamEl.checked = aiCfg.useStream !== false;
-  const proxyEl = document.getElementById('aiProxyInline'); if (proxyEl) proxyEl.value = aiCfg.useCorsProxy ? '1' : '0';
-}
-
-// ── Toast & Token & Cache ──────────────────────────────────────────────────
-function showToast(msg, type = 'info') {
-  const el = document.getElementById('aiToast'); if (!el) return;
-  el.textContent = msg; el.className = `ai-toast ${type} show`;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-function updateTokenHint() {
-  const el = document.getElementById('aiTokenHint'); if (!el) return;
-  const total = aiHistory.reduce((s,m) => s + (m.content?.length || 0), 0);
-  if (!total) { el.textContent = '預估 Token：—'; return; }
-  el.textContent = `預估 Token：≈ ${Math.round(total/2).toLocaleString()}`;
-}
-
-const AI_CHAT_CACHE_KEY = AI_CFG_KEY + '_chat';
-
-function saveAIChatCache() {
-  try { localStorage.setItem(AI_CHAT_CACHE_KEY, JSON.stringify({ page: aiCurrentPage, history: aiHistory, html: document.getElementById('aiBody')?.innerHTML || '' })); } catch(e) {}
-}
-
-function restoreAIChat() {
-  try {
-    const s = localStorage.getItem(AI_CHAT_CACHE_KEY); if (!s) return;
-    const cache = JSON.parse(s);
-    if (cache.history && cache.history.length) {
-      aiHistory = cache.history;
-      const body = document.getElementById('aiBody');
-      if (body && cache.html) body.innerHTML = cache.html;
-      updateRoundLabel(); updateTokenHint();
-    }
-  } catch(e) {}
-}
-
-function exportAIChat() {
-  if (!aiHistory.length) { showToast('沒有對話可匯出', 'info'); return; }
-  const lines = aiHistory.map(m => `【${m.role === 'user' ? '使用者' : 'AI'}】\n${m.content}`).join('\n\n---\n\n');
-  const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'AI_Procurement_Chat_' + new Date().toISOString().slice(0,10) + '.txt';
-  a.click(); URL.revokeObjectURL(a.href);
-}
-
-// ── 初始化 ─────────────────────────────────────────────────────────────────
-loadAICfg();
-
 </script>
-
-<!-- ── AI PANEL ──────────────────────────────────────────────────────────── -->
-<div class="ai-panel" id="aiPanel">
-  <div class="ai-ph">
-    <div class="ai-logo">🤖</div>
-    <div class="ai-title">AI 採購分析師</div>
-    <span id="aiStatusBadge" class="ai-status-badge ready">● 就緒</span>
-    <span class="ai-page-tag" id="aiPageTag">總覽</span>
-    <button class="ai-close-btn" onclick="closeAIPanel()" title="關閉">✕</button>
-  </div>
-
-  <div class="ai-cfg-section">
-    <div class="ai-cfg-toggle" onclick="toggleAICfgSection()">
-      <span>⚙️ AI 設定</span>
-      <span id="aiCfgArrow" class="ai-cfg-arrow collapsed">▾</span>
-    </div>
-    <div id="aiCfgBody" class="ai-cfg-body collapsed">
-      <div class="ai-cfg-row">
-        <label class="ai-cfg-lbl">供應商</label>
-        <select id="aiProvInline" onchange="onProvInlineChange()">
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="minimax">MiniMax</option>
-          <option value="siliconflow">硅基流動</option>
-          <option value="openrouter">OpenRouter</option>
-          <option value="ollama">Ollama（本地）</option>
-          <option value="custom">自訂端點</option>
-        </select>
-      </div>
-      <div class="ai-cfg-row" id="aiInlineUrlRow" style="display:none">
-        <label class="ai-cfg-lbl">端點 URL</label>
-        <input id="aiInlineUrl" type="text" placeholder="https://…">
-      </div>
-      <div class="ai-cfg-row">
-        <label class="ai-cfg-lbl">模型</label>
-        <select id="aiModelInline"></select>
-      </div>
-      <div class="ai-cfg-row">
-        <label class="ai-cfg-lbl">API Key</label>
-        <input id="aiKeyInline" type="password" placeholder="貼上 API Key…" style="flex:1">
-        <button class="ai-eye-btn" onclick="toggleInlineKeyVis()" title="顯示/隱藏">👁</button>
-      </div>
-      <div style="margin-top:3px">
-        <button class="ai-adv-toggle" onclick="toggleInlineAdv()">⚙ 進階設定 <span id="aiAdvArrow">▸</span></button>
-      </div>
-      <div id="aiInlineAdv" class="ai-adv-body">
-        <div class="ai-cfg-row" style="margin-top:6px">
-          <label class="ai-cfg-lbl">溫度</label>
-          <input id="aiTempInline" type="number" value="0.3" min="0" max="2" step="0.1" style="width:70px">
-        </div>
-        <div class="ai-cfg-row">
-          <label class="ai-cfg-lbl">Max Token</label>
-          <input id="aiMaxTokInline" type="number" value="4096" min="512" max="16384" step="256" style="width:90px">
-        </div>
-        <div class="ai-cfg-row">
-          <label class="ai-cfg-lbl">串流輸出</label>
-          <input id="aiStreamInline" type="checkbox" checked>
-        </div>
-        <div class="ai-cfg-row">
-          <label class="ai-cfg-lbl">CORS 代理</label>
-          <select id="aiProxyInline">
-            <option value="0">關閉（直連）</option>
-            <option value="1">本機代理（:8080）</option>
-          </select>
-        </div>
-        <div class="ai-cfg-row" id="aiInlineFmtRow" style="display:none">
-          <label class="ai-cfg-lbl">API 格式</label>
-          <select id="aiFmtInline">
-            <option value="openai">OpenAI 格式</option>
-            <option value="anthropic">Anthropic 格式</option>
-          </select>
-        </div>
-      </div>
-      <div class="ai-cfg-acts">
-        <button class="ai-cfg-btn" onclick="saveAIInlineCfg()">💾 儲存設定</button>
-        <button class="ai-cfg-btn danger" onclick="clearAISavedCfg()">🗑 清除設定</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="ai-ctx-bar" id="aiCtxBar">
-    📄 當前頁面：<span id="aiCtxPage">—</span>
-  </div>
-
-  <div class="ai-quick-row">
-    <button class="ai-qb primary" onclick="triggerPageAIFromPanel()"><span class="ai-pulse"></span>分析此頁面</button>
-    <button class="ai-qb normal" onclick="sendQuickWithCtx('請對當前頁面採購數據進行綜合分析，指出主要風險與機會。')">📊 綜合分析</button>
-    <button class="ai-qb normal" onclick="sendQuickWithCtx('請識別當前採購數據中的異常值或超支警告，並說明原因。')">⚠️ 異常偵測</button>
-    <button class="ai-qb normal" onclick="sendQuickWithCtx('根據當前採購數據，請提供具體的成本優化建議與行動方案。')">💡 優化建議</button>
-    <button class="ai-qb normal" onclick="sendQuickWithCtx('請分析供應商績效與風險，並提出改善策略。')">🏆 供應商評估</button>
-  </div>
-
-  <div class="ai-token-hint" id="aiTokenHint">預估 Token：—</div>
-  <div class="ai-body" id="aiBody"></div>
-
-  <div class="ai-footer">
-    <div class="ai-input-row">
-      <textarea class="ai-input" id="aiInput" placeholder="輸入追問…（Shift+Enter 換行，Enter 送出）" rows="1"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFollowup()}"
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'"></textarea>
-      <button class="ai-send-btn" id="aiSendBtn" onclick="sendFollowup()">▶ 送出</button>
-      <button class="ai-stop-btn" id="aiStopBtn" onclick="stopAI()" style="display:none">■ 停止</button>
-    </div>
-    <div class="ai-act-row">
-      <span id="aiRoundLabel" style="font-size:.65rem;color:var(--muted)">0 / 10 輪</span>
-      <span id="aiProvLabel" style="font-size:.65rem;color:var(--muted);flex:1;text-align:right">—</span>
-      <button class="ai-act-btn" onclick="clearAIChat()" title="清除對話">🗑 清除</button>
-      <button class="ai-act-btn" onclick="exportAIChat()" title="匯出對話">📥 匯出</button>
-    </div>
-  </div>
-</div>
-
-<!-- Floating AI Toggle Button -->
-<button id="aiFloatBtn" onclick="toggleAIPanel()" title="開啟 AI 分析">🤖<span class="ai-float-lbl">AI分析</span></button>
-
-<!-- Toast -->
-<div class="ai-toast" id="aiToast"></div>
-
 </body>
 </html>
