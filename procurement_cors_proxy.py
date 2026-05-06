@@ -17,6 +17,11 @@
 """
 
 import sys, ssl, json, os, mimetypes
+# Windows CP950 終端無法輸出 emoji，強制改為 UTF-8
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import urllib.request, urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, unquote, parse_qs

@@ -547,6 +547,7 @@ tr:last-child td { border-bottom: none; }
 .ai-adv-toggle { font-size: .7rem; color: var(--muted); cursor: pointer; padding: 2px 0; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }
 .ai-adv-toggle:hover { color: var(--text); }
 .ai-adv-body { display: none; }
+.ai-adv-body.open { display: block; }
 .ai-cfg-acts { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
 .ai-cfg-btn { font-size: .68rem; padding: 3px 8px; border-radius: 6px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); color: var(--muted); transition: all .2s; font-family: inherit; }
 .ai-cfg-btn:hover { border-color: var(--primary); color: var(--primary); }
@@ -2869,6 +2870,254 @@ function exportExcel() {
   XLSX.writeFile(wb, '採購分析報告_' + new Date().toISOString().slice(0,10) + '.xlsx');
   closeExportModal();
 }
+
+/* =====================================================================
+ * AI 採購分析模組 — 移植自現金流量儀表板 AI 框架
+ * =====================================================================*/
+const AI_PROVIDERS = {
+  openai:      {name:'OpenAI',       baseUrl:'https://api.openai.com/v1',         models:['gpt-4o','gpt-4o-mini','gpt-4-turbo','o1-mini','o3-mini'],                                                                              defaultModel:'gpt-4o',               apiFormat:'openai',    visionModels:['gpt-4o','gpt-4-turbo']},
+  anthropic:   {name:'Anthropic',    baseUrl:'https://api.anthropic.com',         models:['claude-opus-4-7','claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001'],                                                  defaultModel:'claude-sonnet-4-6',    apiFormat:'anthropic', visionModels:['claude-opus-4-7','claude-opus-4-6','claude-sonnet-4-6','claude-haiku-4-5-20251001']},
+  deepseek:    {name:'DeepSeek',     baseUrl:'https://api.deepseek.com/v1',       models:['deepseek-chat','deepseek-reasoner'],                                                                                                   defaultModel:'deepseek-chat',        apiFormat:'openai',    visionModels:[]},
+  minimax:     {name:'MiniMax',      baseUrl:'https://api.minimaxi.com/v1',       models:['MiniMax-M2.7','MiniMax-M2.7-highspeed','MiniMax-M2.5'],                                                                               defaultModel:'MiniMax-M2.7',         apiFormat:'openai',    visionModels:[]},
+  siliconflow: {name:'硅基流動',     baseUrl:'https://api.siliconflow.cn/v1',     models:['Qwen/Qwen2.5-72B-Instruct','deepseek-ai/DeepSeek-V3','Pro/deepseek-ai/DeepSeek-R1'],                                                 defaultModel:'Qwen/Qwen2.5-72B-Instruct', apiFormat:'openai', visionModels:[]},
+  openrouter:  {name:'OpenRouter',   baseUrl:'https://openrouter.ai/api/v1',      models:['anthropic/claude-sonnet-4-6','openai/gpt-4o','deepseek/deepseek-chat','google/gemini-2.5-flash','meta-llama/llama-3.3-70b-instruct'], defaultModel:'anthropic/claude-sonnet-4-6', apiFormat:'openai', visionModels:['anthropic/claude-sonnet-4-6','openai/gpt-4o','google/gemini-2.5-flash']},
+  ollama:      {name:'Ollama（本地）',baseUrl:'http://localhost:11434/v1',         models:['llama3.3','qwen2.5:72b','deepseek-r1:70b','gemma3:27b','mistral'],                                                                  defaultModel:'llama3.3',             apiFormat:'openai',    visionModels:[]},
+  custom:      {name:'自訂端點',     baseUrl:'',                                  models:[],                                                                                                                                     defaultModel:'',                     apiFormat:'openai',    visionModels:[]}
+};
+const AI_CFG_KEY = 'procDashAICfg_v1';
+let aiCfg = {provider:'anthropic', endpoint:'https://api.anthropic.com', apiKey:'', model:'claude-sonnet-4-6',
+             temperature:0.3, useStream:true, savedKeys:{}, savedBaseUrls:{},
+             corsProxyMode:'off', corsProxyUrl:'', apiFormat:'anthropic', maxTokens:4096};
+let aiHistory = [], aiCurrentPage = 'summary', aiStreaming = false, aiAbortCtrl = null;
+const PROC_PAGES = {
+  summary:'決策總覽', spend:'支出分析', supplier:'供應商矩陣', cost:'成本節約',
+  quality:'品質與交付', deviation:'計畫偏差', risk:'風險管控', esg:'ESG 永續',
+  contract:'合約管理', maturity:'採購成熟度', simulation:'情境模擬', datacenter:'資料管理'
+};
+const SYSTEM_PROMPT_PROC = `你是一位資深採購顧問與供應鏈管理（Procurement & SCM）專家，精通台灣製造業採購策略、供應商管理與成本節約。
+
+【核心能力領域】
+- 支出分析：品類集中度、Maverick 支出識別、Spend Cube 三維建模
+- 供應商管理：供應商分級、風險評估、績效 KPI、備位供應商開發
+- 成本節約：PPV 偏差分析、VAVE 優化、早付折扣評估、TCO 分析
+- 品質與交付：不良率根因分析、OTD 改善策略、8D 問題解決
+- 風險管控：供應鏈韌性評估、地緣風險、單一來源依賴、ESG 合規
+- 合約管理：條款優化、續約策略、違約條款分析
+- 採購成熟度：KPI 改善路徑、流程數位化、採購轉型
+
+【回應規範】
+1. 全程使用繁體中文（專有名詞使用中英對照，如：採購偏差 Purchase Price Variance, PPV）
+2. 結構化呈現：先給結論（一句話），再拆解依據（事實 → 分析 → 推論）
+3. 重點數字標記：⚠️ 表示風險、💡 表示建議、✅ 表示健康
+4. 提出 2-3 個具體可行的行動建議，含優先級（P1 緊急/P2 重要/P3 一般）
+5. 【標籤】格式用於標示重點類別`;
+const PAGE_QR_PROC = {
+  summary:['最需要關注的採購風險是什麼？','成本節約空間還在哪裡？','哪家供應商的表現最令人擔憂？'],
+  spend:['品類集中度是否存在風險？','Maverick 支出如何有效降低？','哪個部門採購效率最差？'],
+  supplier:['高風險供應商應如何分級管理？','Top 5 集中度是否合理？','應優先開發哪類備位供應商？'],
+  cost:['PPV 偏差的根本原因是什麼？','節約目標未達成的原因？','哪個品類節約潛力最大？'],
+  quality:['品質異常如何預防性管理？','不良率高的根本原因是什麼？','交期延誤如何系統性改善？'],
+  deviation:['計畫偏差最嚴重的科目？','偏差是結構性還是偶發性？','下季度如何調整預算？'],
+  risk:['哪些供應商面臨地緣政治風險？','單一來源依賴如何系統性降低？','供應鏈韌性評分如何提升？'],
+  esg:['ESG 評分最低的供應商需要改善什麼？','碳排放目標如何有效追蹤？','綠色採購比例如何逐步提升？'],
+  contract:['即將到期的合約需要優先續約嗎？','合約條款有哪些風險點？','如何提升合約履約率？'],
+  maturity:['採購成熟度最需要提升的面向？','如何定義下一個成熟度里程碑？','流程數位化優先從哪裡下手？'],
+  simulation:['悲觀情境下採購成本影響多少？','最敏感的成本驅動因素是什麼？','如何設計對沖方案？'],
+};
+const PAGE_TRIGGER_PROMPTS_PROC = {
+  summary:'請根據以下採購總覽數據，分析整體採購健康狀況，指出最需要關注的 2-3 個風險，提出可執行行動建議。',
+  spend:'請根據以下支出分析數據，評估品類集中度、Maverick 支出比例，提出優化採購結構的建議。',
+  supplier:'請根據以下供應商矩陣數據，分析高風險供應商、集中度風險，提出供應商分級管理策略。',
+  cost:'請根據以下成本節約數據，分析 PPV 偏差根因、節約達成率，提出下季度節約行動計畫。',
+  quality:'請根據以下品質交付數據，找出不良率高的根本原因，提出 30 天內可執行的改善計畫。',
+  deviation:'請根據以下計畫偏差數據，分析超支科目根因、撙節空間，提出下季度調整建議。',
+  risk:'請根據以下風險評估數據，分析供應鏈脆弱性，提出風險對沖與備位供應商策略。',
+  esg:'請根據以下 ESG 數據，評估供應商永續合規情況，提出綠色採購改善優先順序。',
+  contract:'請根據以下合約管理數據，分析到期風險、履約情況，提出合約優化策略。',
+  maturity:'請根據以下採購成熟度數據，分析各面向落差，提出提升路徑與里程碑。',
+  simulation:'請根據以下情境模擬數據，評估各情境對採購成本的影響，提出風險對沖方案。',
+};
+function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+/* Config */
+function loadAICfg(){try{const s=localStorage.getItem(AI_CFG_KEY);if(!s)return;const p=JSON.parse(s);Object.assign(aiCfg,{savedKeys:p.savedKeys||{},savedBaseUrls:p.savedBaseUrls||{}});if(p.provider)aiCfg.provider=p.provider;if(p.model)aiCfg.model=p.model;if(p.temperature!==undefined)aiCfg.temperature=p.temperature;if(p.useStream!==undefined)aiCfg.useStream=p.useStream;if(p.corsProxyMode)aiCfg.corsProxyMode=p.corsProxyMode;if(p.corsProxyUrl)aiCfg.corsProxyUrl=p.corsProxyUrl;if(p.apiFormat)aiCfg.apiFormat=p.apiFormat;if(p.maxTokens)aiCfg.maxTokens=p.maxTokens;aiCfg.apiKey=aiCfg.savedKeys[aiCfg.provider]||'';}catch(e){}}
+function saveAICfg(){try{localStorage.setItem(AI_CFG_KEY,JSON.stringify(aiCfg));}catch(e){}}
+/* UI */
+function toggleAIPanel(){const p=document.getElementById('aiPanel');if(p)p.classList.toggle('open');}
+function closeAIPanel(){const p=document.getElementById('aiPanel');if(p)p.classList.remove('open');}
+function toggleAICfgSection(){const b=document.getElementById('aiCfgBody'),a=document.getElementById('aiCfgArrow');if(!b)return;const c=b.classList.toggle('collapsed');if(a)a.classList.toggle('collapsed',c);}
+function toggleInlineAdv(){const b=document.getElementById('aiInlineAdv'),a=document.getElementById('aiAdvArrow');const o=b.classList.toggle('open');if(a)a.textContent=o?'▾':'▸';}
+function toggleInlineKeyVis(){const k=document.getElementById('aiKeyInline');k.type=k.type==='password'?'text':'password';}
+function onProxyModeChange(){const sel=document.getElementById('aiProxyInline'),row=document.getElementById('aiProxyUrlRow');if(!sel||!row)return;row.style.display=sel.value==='custom'?'flex':'none';}
+function wrapWithProxy(u){if(aiCfg.corsProxyMode==='local')return`http://localhost:8080/proxy?url=${encodeURIComponent(u)}`;if(aiCfg.corsProxyMode==='custom'&&aiCfg.corsProxyUrl){const b=aiCfg.corsProxyUrl.replace(/\/$/,'');return`${b}?url=${encodeURIComponent(u)}`;}return u;}
+function onProvInlineChange(){const sel=document.getElementById('aiProvInline');if(!sel)return;const id=sel.value,prov=AI_PROVIDERS[id];aiCfg.provider=id;aiCfg.apiKey=aiCfg.savedKeys[id]||'';aiCfg.endpoint=aiCfg.savedBaseUrls[id]||prov.baseUrl||'';aiCfg.apiFormat=prov.apiFormat;if(prov.defaultModel)aiCfg.model=aiCfg.savedKeys['model_'+id]||prov.defaultModel;document.getElementById('aiInlineUrlRow').style.display=(id==='custom'||id==='ollama')?'flex':'none';document.getElementById('aiInlineFmtRow').style.display=(id==='custom')?'flex':'none';const mc=document.getElementById('aiModelInline');if(prov.models.length){mc.outerHTML=`<select id="aiModelInline" style="width:100%">${prov.models.map(m=>`<option value="${m}"${m===aiCfg.model?' selected':''}>${m}</option>`).join('')}</select>`;}else{mc.outerHTML=`<input type="text" id="aiModelInline" style="width:100%" placeholder="請輸入模型名稱" value="${_escHtml(aiCfg.model||'')}">` ;}document.getElementById('aiKeyInline').value=aiCfg.apiKey;document.getElementById('aiInlineUrl').value=aiCfg.endpoint||'';updateAIProvLabel();}
+function loadAIInlineCfg(){const g=id=>document.getElementById(id);if(g('aiProvInline'))g('aiProvInline').value=aiCfg.provider||'anthropic';onProvInlineChange();if(g('aiKeyInline'))g('aiKeyInline').value=aiCfg.savedKeys[aiCfg.provider]||aiCfg.apiKey||'';if(g('aiTempInline'))g('aiTempInline').value=aiCfg.temperature;if(g('aiMaxTokInline'))g('aiMaxTokInline').value=aiCfg.maxTokens;if(g('aiStreamInline'))g('aiStreamInline').checked=aiCfg.useStream;if(g('aiProxyInline'))g('aiProxyInline').value=aiCfg.corsProxyMode||'off';if(g('aiProxyUrl'))g('aiProxyUrl').value=aiCfg.corsProxyUrl||'';if(typeof onProxyModeChange==='function')onProxyModeChange();if(g('aiFmtInline'))g('aiFmtInline').value=aiCfg.apiFormat||'openai';if(g('aiInlineUrl'))g('aiInlineUrl').value=aiCfg.savedBaseUrls[aiCfg.provider]||aiCfg.endpoint||'';}
+function saveAIInlineCfg(){const g=id=>document.getElementById(id);if(g('aiProvInline'))aiCfg.provider=g('aiProvInline').value;if(g('aiKeyInline')){aiCfg.apiKey=g('aiKeyInline').value.trim();aiCfg.savedKeys[aiCfg.provider]=aiCfg.apiKey;}if(g('aiModelInline'))aiCfg.model=g('aiModelInline').value.trim();if(g('aiInlineUrl')){aiCfg.endpoint=g('aiInlineUrl').value.trim();if(aiCfg.endpoint)aiCfg.savedBaseUrls[aiCfg.provider]=aiCfg.endpoint;}if(g('aiTempInline'))aiCfg.temperature=parseFloat(g('aiTempInline').value)||0.3;if(g('aiMaxTokInline'))aiCfg.maxTokens=parseInt(g('aiMaxTokInline').value)||4096;if(g('aiStreamInline'))aiCfg.useStream=g('aiStreamInline').checked;if(g('aiProxyInline'))aiCfg.corsProxyMode=g('aiProxyInline').value||'off';if(g('aiProxyUrl'))aiCfg.corsProxyUrl=g('aiProxyUrl').value.trim();if(g('aiFmtInline'))aiCfg.apiFormat=g('aiFmtInline').value;saveAICfg();showAIToast('✅ 設定已儲存','ok');updateAIProvLabel();}
+function clearAISavedCfg(){if(!confirm('確定要清除所有 AI 設定（含 API Key）？'))return;localStorage.removeItem(AI_CFG_KEY);aiCfg={provider:'anthropic',endpoint:'https://api.anthropic.com',apiKey:'',model:'claude-sonnet-4-6',temperature:0.3,useStream:true,savedKeys:{},savedBaseUrls:{},corsProxyMode:'off',corsProxyUrl:'',apiFormat:'anthropic',maxTokens:4096};loadAIInlineCfg();showAIToast('🗑 已清除設定','ok');}
+function updateAIProvLabel(){const el=document.getElementById('aiProvLabel');if(el){const p=AI_PROVIDERS[aiCfg.provider];el.textContent=(p?p.name:'Custom')+' · '+(aiCfg.model||'—');}}
+function setAIStatus(s){const el=document.getElementById('aiStatusBadge');if(!el)return;el.className='ai-status-badge'+(s==='busy'?' busy':s==='error'?' error':'');el.textContent=s==='busy'?'● 分析中':s==='error'?'● 錯誤':'● 就緒';}
+function showAIToast(msg,type='info'){const el=document.getElementById('aiToast');if(!el)return;el.textContent=msg;el.className=`ai-toast ${type} show`;clearTimeout(window._aiToastTimer);window._aiToastTimer=setTimeout(()=>el.classList.remove('show'),2500);}
+/* Markdown */
+function renderMarkdownAI(text){if(!text)return'';let t=text.replace(/```[\w]*\n?([\s\S]*?)```/g,(_,c)=>`<pre><code>${_escHtml(c)}</code></pre>`).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>').replace(/^---+$/gm,'<hr>').replace(/^[*-] (.+)$/gm,'<li>$1</li>').replace(/^\d+\. (.+)$/gm,'<li>$1</li>').replace(/【([^】]+)】/g,'<span class="ai-tag">【$1】</span>').replace(/(⚠️[^\n<]*)/g,'<span class="ai-warn">$1</span>');t=t.replace(/((?:<li>[^<]*<\/li>\s*)+)/g,'<ul>$1</ul>');t=t.replace(/\n\n+/g,'</p><p>').replace(/\n/g,'<br>');return'<p>'+t+'</p>';}
+/* AI 呼叫引擎 */
+async function callAI(messages,onChunk,onDone,onError,imageBase64=null){if(aiStreaming){showAIToast('AI 正在回應中…','info');return;}aiStreaming=true;aiAbortCtrl=new AbortController();const send=document.getElementById('aiSendBtn'),stop=document.getElementById('aiStopBtn');if(send)send.disabled=true;if(stop)stop.style.display='inline-block';setAIStatus('busy');try{const p=aiCfg.provider;const isAnthropic=p==='anthropic'||(p==='custom'&&aiCfg.apiFormat==='anthropic');if(isAnthropic)await _callAnthropic(messages,onChunk,onDone,onError,imageBase64);else await _callOpenAI(messages,onChunk,onDone,onError,imageBase64);}catch(err){if(err.name==='AbortError'){onError('已停止');setAIStatus('idle');}else{console.error('AI Error:',err);onError(err.message);setAIStatus('error');}}finally{aiStreaming=false;aiAbortCtrl=null;if(send)send.disabled=false;if(stop)stop.style.display='none';}}
+function stopAI(){if(aiAbortCtrl)aiAbortCtrl.abort();}
+async function _callOpenAI(messages,onChunk,onDone,onError,imageBase64){const p=aiCfg.provider;const useCustom=p==='custom'||p==='openrouter'||p==='ollama';const baseUrl=useCustom?(aiCfg.savedBaseUrls[p]||aiCfg.endpoint||AI_PROVIDERS[p]?.baseUrl||''):AI_PROVIDERS[p].baseUrl;const url=wrapWithProxy(`${baseUrl}/chat/completions`);let msgs=messages;if(imageBase64){msgs=messages.map((m,i)=>{if(i===messages.length-1&&m.role==='user'){return{role:'user',content:[{type:'text',text:m.content},{type:'image_url',image_url:{url:imageBase64}}]};}return m;});}const resp=await fetch(url,{method:'POST',signal:aiAbortCtrl?.signal,headers:{'Content-Type':'application/json','Authorization':`Bearer ${aiCfg.apiKey}`},body:JSON.stringify({model:aiCfg.model,messages:msgs,temperature:aiCfg.temperature,max_tokens:aiCfg.maxTokens||4096,stream:aiCfg.useStream})});if(!resp.ok){const e=await resp.text();throw new Error(`HTTP ${resp.status}: ${e.slice(0,200)}`);}if(aiCfg.useStream){const reader=resp.body.getReader(),dec=new TextDecoder();let full='';while(true){const{done,value}=await reader.read();if(done)break;for(const line of dec.decode(value,{stream:true}).split('\n')){if(!line.startsWith('data: ')||line.slice(6).trim()==='[DONE]')continue;try{const d=JSON.parse(line.slice(6));const delta=d.choices?.[0]?.delta?.content||'';if(delta){full+=delta;onChunk(delta,full);}}catch(e){}}}onDone(full);}else{const json=await resp.json();const c=json.choices?.[0]?.message?.content||'';onChunk(c,c);onDone(c);}}
+async function _callAnthropic(messages,onChunk,onDone,onError,imageBase64){const p=aiCfg.provider;const baseUrl=(p==='anthropic')?AI_PROVIDERS.anthropic.baseUrl:aiCfg.endpoint;const url=wrapWithProxy(`${baseUrl}/v1/messages`);const sysMsg=messages.find(m=>m.role==='system')?.content||SYSTEM_PROMPT_PROC;let userMsgs=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='user'?'user':'assistant',content:m.content}));if(imageBase64&&userMsgs.length){const last=userMsgs[userMsgs.length-1];last.content=[{type:'image',source:{type:'base64',media_type:'image/png',data:imageBase64.replace(/^data:image\/png;base64,/,'')}},{type:'text',text:last.content}];}const resp=await fetch(url,{method:'POST',signal:aiAbortCtrl?.signal,headers:{'Content-Type':'application/json','x-api-key':aiCfg.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:aiCfg.model,system:sysMsg,messages:userMsgs,temperature:aiCfg.temperature,max_tokens:aiCfg.maxTokens||4096,stream:aiCfg.useStream})});if(!resp.ok){const e=await resp.text();throw new Error(`HTTP ${resp.status}: ${e.slice(0,200)}`);}if(aiCfg.useStream){const reader=resp.body.getReader(),dec=new TextDecoder();let full='';while(true){const{done,value}=await reader.read();if(done)break;for(const line of dec.decode(value,{stream:true}).split('\n')){if(!line.startsWith('data: '))continue;try{const j=JSON.parse(line.slice(6));const delta=j.delta?.text||'';if(delta){full+=delta;onChunk(delta,full);}}catch(e){}}}onDone(full);}else{const data=await resp.json();const c=data.content?.[0]?.text||'';onChunk(c,c);onDone(c);}}
+/* 訊息 UI */
+function addAIMessage(role,content){const body=document.getElementById('aiBody');if(!body)return null;const div=document.createElement('div');div.className=`ai-msg ${role}`;const label=role==='user'?'🧑 你':'🤖 AI 採購分析師';div.innerHTML=`<div class="ai-msg-role">${label}</div><div class="ai-msg-bubble ai-md">${renderMarkdownAI(content)}</div>`;body.appendChild(div);body.scrollTop=body.scrollHeight;return div;}
+function addAILoading(){const body=document.getElementById('aiBody');const id='aiLoad_'+Date.now();const div=document.createElement('div');div.id=id;div.className='ai-msg assistant';div.innerHTML=`<div class="ai-msg-role">🤖 AI 採購分析師</div><div class="ai-msg-bubble ai-md"><div class="ai-dots"><span></span><span></span><span></span></div></div>`;body.appendChild(div);body.scrollTop=body.scrollHeight;return id;}
+function appendToLoading(id,chunk){const el=document.getElementById(id);if(!el)return;const bubble=el.querySelector('.ai-msg-bubble');if(!bubble)return;if(bubble.querySelector('.ai-dots'))bubble.innerHTML='<span class="ai-stream-text"></span>';const span=bubble.querySelector('.ai-stream-text');if(span){const raw=(span.dataset.raw||'')+chunk;span.dataset.raw=raw;span.innerHTML=renderMarkdownAI(raw);}document.getElementById('aiBody').scrollTop=document.getElementById('aiBody').scrollHeight;}
+function finalizeLoading(id,full){const el=document.getElementById(id);if(!el)return;const bubble=el.querySelector('.ai-msg-bubble');if(bubble)bubble.innerHTML=renderMarkdownAI(full);document.getElementById('aiBody').scrollTop=document.getElementById('aiBody').scrollHeight;setAIStatus('idle');}
+function replaceLoading(id,html){const el=document.getElementById(id);if(!el)return;const bubble=el.querySelector('.ai-msg-bubble');if(bubble)bubble.innerHTML=html;}
+/* 截圖 */
+async function captureCurrentPage(){if(typeof html2canvas==='undefined'){showAIToast('html2canvas 載入失敗','err');return null;}const sec=document.querySelector('.page.active');if(!sec)return null;try{const isDark=!document.body.getAttribute('data-theme');const canvas=await html2canvas(sec,{scale:0.8,backgroundColor:isDark?'#0f172a':'#f9f6f0',useCORS:true,logging:false});return canvas.toDataURL('image/png');}catch(e){console.error(e);showAIToast('截圖失敗：'+e.message,'err');return null;}}
+/* 資料萃取器 */
+function getAllProcExtractors(){const d=(typeof AppData!=='undefined'&&AppData)?AppData:{};const fmtN=n=>typeof n==='number'?(Math.abs(n)>=10000?(n/10000).toFixed(1)+'萬':n.toFixed(0)):(n||'—');return{summary:()=>{const spend=(d.spend||[]).reduce((s,r)=>s+(r.金額||0),0);const saving=(d.savings||[]).reduce((s,r)=>s+(r.金額||0),0);const suppliers=d.suppliers||[];const highRisk=suppliers.filter(s=>s.風險==='高').length;const deliveries=d.deliveries||[];const otd=deliveries.length?(deliveries.filter(r=>r.狀態==='準時').length/deliveries.length*100).toFixed(1)+'%':'—';return{頁面:'決策總覽',總採購支出:fmtN(spend),成本節約:fmtN(saving),活躍供應商:suppliers.length,高風險供應商:highRisk,準時交貨率:otd};},spend:()=>{const rows=d.spend||[];const byCategory={};rows.forEach(r=>{byCategory[r.品類]=(byCategory[r.品類]||0)+(r.金額||0);});return{頁面:'支出分析',總支出:fmtN(rows.reduce((s,r)=>s+(r.金額||0),0)),品類分佈:Object.entries(byCategory).map(([k,v])=>({品類:k,金額:fmtN(v)}))};},supplier:()=>{const suppliers=d.suppliers||[];return{頁面:'供應商矩陣',供應商總數:suppliers.length,高風險:suppliers.filter(s=>s.風險==='高').length,中風險:suppliers.filter(s=>s.風險==='中').length,低風險:suppliers.filter(s=>s.風險==='低').length,清單:suppliers.slice(0,10).map(s=>({名稱:s.名稱||s.name||s.supplier,風險:s.風險,評分:s.評分||s.score}))};},cost:()=>{const savings=d.savings||[];return{頁面:'成本節約',節約總額:fmtN(savings.reduce((s,r)=>s+(r.金額||0),0)),節約筆數:savings.length,明細:savings.slice(0,10).map(s=>({項目:s.項目||s.name,金額:fmtN(s.金額||0),類別:s.類別}))};},quality:()=>{const q=d.quality||[];const deliveries=d.deliveries||[];return{頁面:'品質與交付',品質異常數:q.length,準時交貨率:deliveries.length?(deliveries.filter(r=>r.狀態==='準時').length/deliveries.length*100).toFixed(1)+'%':'—',異常記錄:q.slice(0,10)};},risk:()=>{const suppliers=d.suppliers||[];const high=suppliers.filter(s=>s.風險==='高');return{頁面:'風險管控',高風險供應商數:high.length,高風險清單:high.slice(0,10).map(s=>({名稱:s.名稱||s.name||s.supplier,評分:s.評分||s.score}))};},};}
+/* 觸發分析 */
+async function triggerAI(pageId){if(!aiCfg.apiKey){showAIToast('⚠️ 請先填入 API Key 並儲存','err');toggleAICfgSection();return;}const navItem=document.querySelector(`.nav-item[data-page="${pageId}"]`);if(navItem)navItem.click();aiCurrentPage=pageId;const pageName=PROC_PAGES[pageId]||pageId;const ctxEl=document.getElementById('aiCtxPage');if(ctxEl)ctxEl.textContent=pageName;const tagEl=document.getElementById('aiPageTag');if(tagEl)tagEl.textContent=pageName;document.getElementById('aiPanel').classList.add('open');const extractors=getAllProcExtractors();const data=extractors[pageId]?extractors[pageId]():{頁面:pageName,說明:'請描述當前頁面狀況以獲得更準確分析'};const prompt=(PAGE_TRIGGER_PROMPTS_PROC[pageId]||'請分析以下採購資料：')+'\n\n```json\n'+JSON.stringify(data,null,2)+'\n```';addAIMessage('user',`📊 分析「${pageName}」`);aiHistory.push({role:'user',content:prompt});let imgB64=null;if(document.getElementById('aiAttachShot')?.checked){const prov=AI_PROVIDERS[aiCfg.provider];if(prov.visionModels.length===0||!prov.visionModels.includes(aiCfg.model)){showAIToast('⚠️ 當前模型不支援 Vision，已忽略截圖','info');}else{showAIToast('📸 截圖中…','info');imgB64=await captureCurrentPage();}}const loadId=addAILoading();const msgs=[{role:'system',content:SYSTEM_PROMPT_PROC},...aiHistory.slice(-10)];await callAI(msgs,chunk=>appendToLoading(loadId,chunk),full=>{finalizeLoading(loadId,full);aiHistory.push({role:'assistant',content:full});updateRoundLabel();setupQuickReplies(pageId);},err=>replaceLoading(loadId,'❌ 錯誤：'+_escHtml(err)),imgB64);}
+function triggerCurrentPage(){const active=document.querySelector('.nav-item.active');triggerAI(active?.dataset.page||'summary');}
+async function sendFollowup(){if(!aiCfg.apiKey){showAIToast('⚠️ 請先填入 API Key','err');return;}if(aiHistory.length>=10){showAIToast('已達 5 輪上限，請清除對話','info');return;}const input=document.getElementById('aiInput');const text=input.value.trim();if(!text||aiStreaming)return;input.value='';input.style.height='auto';addAIMessage('user',text);aiHistory.push({role:'user',content:text});let imgB64=null;if(document.getElementById('aiAttachShot')?.checked){const prov=AI_PROVIDERS[aiCfg.provider];if(prov.visionModels.length&&prov.visionModels.includes(aiCfg.model)){imgB64=await captureCurrentPage();}}const loadId=addAILoading();const msgs=[{role:'system',content:SYSTEM_PROMPT_PROC},...aiHistory.slice(-10)];await callAI(msgs,chunk=>appendToLoading(loadId,chunk),full=>{finalizeLoading(loadId,full);aiHistory.push({role:'assistant',content:full});updateRoundLabel();},err=>replaceLoading(loadId,'❌ 錯誤：'+_escHtml(err)),imgB64);}
+function setupQuickReplies(pageId){document.querySelectorAll('.ai-qr').forEach(el=>el.remove());const qrs=PAGE_QR_PROC[pageId];if(!qrs)return;const body=document.getElementById('aiBody');const div=document.createElement('div');div.className='ai-qr';div.innerHTML=qrs.map(q=>`<button class="ai-qr-btn" onclick="sendQuickReply(${JSON.stringify(q).replace(/"/g,'&quot;')})">${_escHtml(q)}</button>`).join('');body.appendChild(div);body.scrollTop=body.scrollHeight;}
+function sendQuickReply(text){document.getElementById('aiInput').value=text;sendFollowup();document.querySelectorAll('.ai-qr').forEach(el=>el.remove());}
+function updateRoundLabel(){const el=document.getElementById('aiRoundLabel');if(el)el.textContent=aiHistory.length+' / 10 輪';}
+function clearAIChat(){if(!confirm('確定要清除所有對話？'))return;aiHistory=[];document.getElementById('aiBody').innerHTML=`<div class="ai-msg assistant"><div class="ai-msg-role">🤖 AI 採購分析師</div><div class="ai-msg-bubble ai-md"><p>對話已清除，可重新開始。</p></div></div>`;updateRoundLabel();}
+function exportAIChat(){if(!aiHistory.length){showAIToast('沒有對話可匯出','info');return;}const lines=aiHistory.map(m=>`【${m.role==='user'?'使用者':'AI'}】\n${m.content}`).join('\n\n---\n\n');const blob=new Blob([lines],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Proc_AI_Chat_'+new Date().toISOString().slice(0,10)+'.txt';a.click();}
+/* Nav 切換時更新 AI 上下文 */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
+    item.addEventListener('click',()=>{
+      aiCurrentPage=item.dataset.page;
+      const name=PROC_PAGES[aiCurrentPage]||aiCurrentPage;
+      const ctxEl=document.getElementById('aiCtxPage');if(ctxEl)ctxEl.textContent=name;
+      const tagEl=document.getElementById('aiPageTag');if(tagEl)tagEl.textContent=name;
+    });
+  });
+  loadAICfg(); loadAIInlineCfg(); updateAIProvLabel();
+});
 </script>
+
+<!-- ═══════ AI 採購分析師 浮動按鈕 + 面板 ═══════ -->
+<button id="aiFloatBtn" onclick="toggleAIPanel()" title="開啟 AI 採購分析師">
+  🤖<span class="ai-float-lbl">AI 分析</span>
+</button>
+
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-ph">
+    <div class="ai-ph" style="font-size:20px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">🧠</div>
+    <div class="ai-title">AI 採購分析師</div>
+    <span id="aiStatusBadge" class="ai-status-badge idle">● 就緒</span>
+    <span class="ai-page-tag" id="aiPageTag">決策總覽</span>
+    <button class="ai-close-btn" onclick="closeAIPanel()" title="關閉">✕</button>
+  </div>
+  <div class="ai-cfg-section">
+    <div class="ai-cfg-toggle" onclick="toggleAICfgSection()">
+      <span>⚙️ AI 設定</span>
+      <span id="aiCfgArrow" class="ai-cfg-arrow collapsed">▾</span>
+    </div>
+    <div id="aiCfgBody" class="ai-cfg-body collapsed">
+      <div class="ai-cfg-row">
+        <label class="ai-cfg-lbl">供應商</label>
+        <select id="aiProvInline" onchange="onProvInlineChange()">
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="minimax">MiniMax</option>
+          <option value="siliconflow">硅基流動</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="ollama">Ollama（本地）</option>
+          <option value="custom">自訂端點</option>
+        </select>
+      </div>
+      <div class="ai-cfg-row" id="aiInlineUrlRow" style="display:none">
+        <label class="ai-cfg-lbl">端點 URL</label>
+        <input id="aiInlineUrl" type="text" placeholder="https://…">
+      </div>
+      <div class="ai-cfg-row">
+        <label class="ai-cfg-lbl">模型</label>
+        <span style="flex:1;display:flex"><select id="aiModelInline" style="width:100%"></select></span>
+      </div>
+      <div class="ai-cfg-row">
+        <label class="ai-cfg-lbl">API Key</label>
+        <input id="aiKeyInline" type="password" placeholder="貼上 API Key…">
+        <button class="ai-eye-btn" onclick="toggleInlineKeyVis()" title="顯示/隱藏">👁</button>
+      </div>
+      <div style="margin-top:3px">
+        <button class="ai-adv-toggle" onclick="toggleInlineAdv()">⚙ 進階設定 <span id="aiAdvArrow">▸</span></button>
+      </div>
+      <div id="aiInlineAdv" class="ai-adv-body">
+        <div class="ai-cfg-row" style="margin-top:6px">
+          <label class="ai-cfg-lbl">溫度</label>
+          <input id="aiTempInline" type="number" value="0.3" min="0" max="2" step="0.1" style="max-width:80px;flex:none">
+        </div>
+        <div class="ai-cfg-row">
+          <label class="ai-cfg-lbl">Max Token</label>
+          <input id="aiMaxTokInline" type="number" value="4096" min="512" max="16384" step="256" style="max-width:90px;flex:none">
+        </div>
+        <div class="ai-cfg-row">
+          <label class="ai-cfg-lbl">串流輸出</label>
+          <input id="aiStreamInline" type="checkbox" checked style="flex:none;width:auto">
+        </div>
+        <div class="ai-cfg-row">
+          <label class="ai-cfg-lbl">CORS 代理</label>
+          <select id="aiProxyInline" onchange="onProxyModeChange()">
+            <option value="off">關閉（直連）</option>
+            <option value="local">本機代理（:8080）</option>
+            <option value="custom">自訂代理 URL</option>
+          </select>
+        </div>
+        <div class="ai-cfg-row" id="aiProxyUrlRow" style="display:none">
+          <label class="ai-cfg-lbl">代理 URL</label>
+          <input id="aiProxyUrl" type="text" placeholder="https://your-app.vercel.app/api/proxy">
+        </div>
+        <div class="ai-cfg-row" id="aiInlineFmtRow" style="display:none">
+          <label class="ai-cfg-lbl">API 格式</label>
+          <select id="aiFmtInline">
+            <option value="openai">OpenAI 格式</option>
+            <option value="anthropic">Anthropic 格式</option>
+          </select>
+        </div>
+      </div>
+      <div class="ai-cfg-acts">
+        <button class="ai-cfg-btn" onclick="saveAIInlineCfg()">💾 儲存設定</button>
+        <button class="ai-cfg-btn danger" onclick="clearAISavedCfg()">🗑 清除設定</button>
+      </div>
+    </div>
+  </div>
+  <div class="ai-ctx-bar" id="aiCtxBar">📄 當前頁面：<span id="aiCtxPage">決策總覽</span></div>
+  <div class="ai-quick-row">
+    <button class="ai-qb primary" onclick="triggerCurrentPage()"><span class="ai-pulse"></span>分析此頁面</button>
+    <button class="ai-qb normal" onclick="triggerAI('summary')">📊 總覽</button>
+    <button class="ai-qb normal" onclick="triggerAI('spend')">💰 支出</button>
+    <button class="ai-qb normal" onclick="triggerAI('supplier')">🤝 供應商</button>
+    <button class="ai-qb normal" onclick="triggerAI('risk')">🛡 風險</button>
+    <button class="ai-qb normal" onclick="triggerAI('cost')">💡 節約</button>
+  </div>
+  <div class="ai-token-hint" id="aiTokenHint">預估字元：—</div>
+  <div class="ai-body" id="aiBody">
+    <div class="ai-msg assistant">
+      <div class="ai-msg-role">🤖 AI 採購分析師</div>
+      <div class="ai-msg-bubble ai-md"><p>👋 歡迎使用 AI 採購分析師。<br>展開上方「⚙️ AI 設定」填入 API Key，或點選快速按鈕分析當前頁面。</p><p>💡 也可勾選「附加截圖」讓支援 Vision 的模型直接看圖表。</p></div>
+    </div>
+  </div>
+  <div class="ai-footer">
+    <div style="display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);margin-bottom:6px;">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="aiAttachShot"> 📸 附加截圖（需 Vision 模型）</label>
+    </div>
+    <div class="ai-input-row">
+      <textarea class="ai-input" id="aiInput" placeholder="輸入問題（Shift+Enter 換行）" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendFollowup()}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'"></textarea>
+      <button class="ai-send-btn" id="aiSendBtn" onclick="sendFollowup()">▶ 送出</button>
+      <button class="ai-stop-btn" id="aiStopBtn" onclick="stopAI()" style="display:none">■ 停止</button>
+    </div>
+    <div class="ai-act-row">
+      <span id="aiRoundLabel">0 / 10 輪</span>
+      <span id="aiProvLabel" style="flex:1;text-align:right">—</span>
+      <button class="ai-act-btn" onclick="clearAIChat()" title="清除對話">🗑 清除</button>
+      <button class="ai-act-btn" onclick="exportAIChat()" title="匯出對話">📥 匯出</button>
+    </div>
+  </div>
+</div>
+<div class="ai-toast" id="aiToast"></div>
 </body>
 </html>
