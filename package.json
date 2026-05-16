@@ -1,0 +1,14 @@
+{
+  "name": "procurement-analytics-v2",
+  "version": "6.1.0",
+  "description": "採購智能分析平台 V6.1 — Vercel 部署版（AI CORS 代理）",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}

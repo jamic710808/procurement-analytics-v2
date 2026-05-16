@@ -1,0 +1,11 @@
+node_modules/
+.tmp.driveupload/
+vercel-deploy/
+*.xlsx
+*.docx
+*.pdf
+*.csv
+*.png
+*.log
+.DS_Store
+Thumbs.db
